@@ -31,6 +31,11 @@ Vagrant.configure("2") do |config|
     libvirt.graphics_type="none"
   end
 
+  config.vm.provider "libvirt" do |v|
+    v.memory = 2048 # Set memory to 2048 MB (2GB)
+    v.cpus = 2      # Optionally set the number of CPUs
+  end
+
   # Disable automatic box update checking. If you disable this, then
   # boxes will only be checked for updates when the user runs
   # `vagrant box outdated`. This is not recommended.
