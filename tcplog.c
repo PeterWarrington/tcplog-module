@@ -16,6 +16,8 @@ int log_register(void)
 void log_unregister(void)
 {
     pr_info("TCPLog unregister. Goodbye.\n");
+
+    tcp_unregister_congestion_control(&tcp_log_ops);
 }
 
 static u32 log_get_cwnd(struct sock *sk) {
@@ -54,7 +56,7 @@ void log_in_ack_event(struct sock *sk, u32 flags) {
 
 static struct tcp_congestion_ops tcp_log_ops = {
 	.flags		= TCP_CONG_NON_RESTRICTED,
-	.name		= "tcplog",
+    .name		= "tcplog",
 	.owner		= THIS_MODULE,
 	.ssthresh	= log_ssthresh,
     .cong_avoid	= log_cong_avoid,
