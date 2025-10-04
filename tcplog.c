@@ -6,6 +6,25 @@
 
 #include "tcplog.h"
 
+// Comments from net/tcp.h
+static char *log_ca_events[] = {
+    "CA_EVENT_TX_START",	/* first transmit when no packets in flight */
+    "CA_EVENT_CWND_RESTART",	/* congestion window restart */
+    "CA_EVENT_COMPLETE_CWR",	/* end of congestion recovery */
+    "CA_EVENT_LOSS",		/* loss timeout */
+    "CA_EVENT_ECN_NO_CE",	/* ECT set, but not CE marked */
+    "CA_EVENT_ECN_IS_CE",	/* received CE marked IP packet */
+};
+
+// Comments from linux/tools/include/uapi/linux/tcp.h
+static char* log_ca_states[] = {
+    "TCP_CA_Open",      /* Nothing bad has been observed recently. No apparent reordering, packet loss, or ECN marks. */
+    "TCP_CA_Disorder",  /* The sender enters disordered state when it has received DUPACKs or SACKs in the last round of packets sent. This could be due to packet loss or reordering but needs further information to confirm packets have been lost. */
+    "TCP_CA_CWR",       /* The sender enters Congestion Window Reduction (CWR) state when it has received ACKs with ECN-ECE marks, or has experienced congestion or packet discard on the sender host (e.g. qdisc). */
+    "TCP_CA_Recovery",  /* The sender is in fast recovery and retransmitting lost packets, typically triggered by ACK events. */
+    "TCP_CA_Loss",      /* The sender is in loss recovery triggered by retransmission timeout. */
+};
+
 int log_register(void)
 {
     pr_info("TCPlog register\n");
@@ -40,12 +59,12 @@ u32 log_undo_cwnd(struct sock *sk) {
 }
 
 void log_set_state(struct sock *sk, u8 new_state) {
-    pr_info("TCPLog: log_set_state - state=%d - cwnd=%d\n", new_state, log_get_cwnd(sk));
+    pr_info("TCPLog: set_state - state=%s - cwnd=%d\n", log_ca_states[new_state], log_get_cwnd(sk));
     return;
 }
 
 void log_cwnd_event(struct sock *sk, enum tcp_ca_event ev) {
-    pr_info("TCPLog: cwnd_event - ev=%d, cwnd=%d\n", ev, log_get_cwnd(sk));
+    pr_info("TCPLog: cwnd_event - ev=%s, cwnd=%d\n", log_ca_events[ev], log_get_cwnd(sk));
     return;
 }
 
