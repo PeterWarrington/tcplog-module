@@ -32,7 +32,7 @@ Events can have 'any amount of custom fields' according to the specification, fo
 As shown in this example, qlog may use JSON as a logging format, and though the specification is format independent, almost all QUIC qlog implementations use this format. JSON is also trivial to implement, as such I will focus on implementation in this format.
 
 The data field uses the formal specified 'data field definitions' found in standard, though we can be much more relaxed about this in early implementation stages. The spec gives an example of an event with data:
-```
+```json
 ...
 {
     "time": 123456,
