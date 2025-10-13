@@ -63,9 +63,9 @@ The data field uses the formal specified 'data field definitions' found in stand
 
 ## TCPlog event types
 
-The following event types are relevant to TCPlog, ordered by approximate development priority: `tcp:in_ack_event`, `tcp:tx_start`, `tcp:cwnd_restart`, `tcp:packet_lost`, and seperately `tcp:packet_sent`.
+The following event types are relevant to TCPlog, ordered by approximate development priority: (`tcp:in_ack_event`, `tcp:tx_start`, `tcp:cwnd_restart`, `tcp:loss_timeout`), (`tcp:open_enter`, `tcp:disorder_enter`, `tcp:cwr_enter`, `tcp:fast_recovery_enter`, `tcp:loss_recovery_enter`) and seperately `tcp:packet_sent`.
 
-These events have been selected as they are crucial to understanding the functioning of TCP congestion control. The first group of events all trigger congestion window checks in the kernel, and are directly exposed by the congestion control module mechanism, which provides callbacks on these events.
+These events have been selected as they are crucial to understanding the functioning of TCP congestion control. The first group of events all trigger congestion window checks in the kernel, and are directly exposed by the congestion control module mechanism, which provides callbacks on these events. The 2nd group are the enterance of the different congestion avoidance states, which are crucial to understanding which procedure is being used to modify congestion windows.
 
 `tcp:packet_sent` is the most fundamental TCP event generally as it directly relates to the sending of packets, akin to a packet capture - though provides no new information compared to it, and is more difficult to implement.
 
@@ -178,6 +178,69 @@ static void tcp_try_to_open(struct sock *sk, int flag)
 
 `tcp_end_cwnd_reduction` then sets the cwnd to this ssthresh, multiplative decreasing (often halving) the cwnd.
 
+#### Utility
+
+Monitoring the reciept of acknowledgments and the TCP Congestion Control system's processing thereof is very useful as congestion control relies upon ACKs as its main signal of packet loss and successful transmission. It is the most frequently occuring event, therefore offering a way to consistently monitor how recv_wnd and snd_wnd change, including for downloads without upload, where `tcp:in_ack_event` may be the only type of event to occur. 
+
+RFC5681 ('TCP Congestion Control') explains the critical link between duplicate ACKs and the detection of congestion conditions:
+
+```
+3.2.  Fast Retransmit/Fast Recovery
+
+A TCP receiver SHOULD send an immediate duplicate ACK when an out-
+of-order segment arrives.  The purpose of this ACK is to inform the
+sender that a segment was received out-of-order and which sequence
+number is expected.  From the sender's perspective, duplicate ACKs
+can be caused by a number of network problems.  First, they can be
+caused by dropped segments.  In this case, all segments after the
+dropped segment will trigger duplicate ACKs until the loss is
+repaired.  Second, duplicate ACKs can be caused by the re-ordering of
+data segments by the network (not a rare event along some network
+paths [Pax97]).  Finally, duplicate ACKs can be caused by replication
+of ACK or data segments by the network.  In addition, a TCP receiver
+SHOULD send an immediate ACK when the incoming segment fills in all
+or part of a gap in the sequence space.  This will generate more
+timely information for a sender recovering from a loss through a
+retransmission timeout, a fast retransmit, or an advanced loss
+recovery algorithm, as outlined in section 4.3.
+```
+<https://datatracker.ietf.org/doc/html/rfc5681#section-3.2>
+
+RFC5681 also details how important acknowledgments are both to slow start and congestion avoidance:
+
+```
+During slow start, a TCP increments cwnd by at most SMSS bytes for
+each ACK received that cumulatively acknowledges new data.  Slow
+start ends when cwnd exceeds ssthresh (or, optionally, when it
+reaches it, as noted above) or when congestion is observed. 
+
+...
+
+During congestion avoidance, cwnd is incremented by roughly 1 full-
+sized segment per round-trip time (RTT).  Congestion avoidance
+continues until congestion is detected.  The basic guidelines for
+incrementing cwnd during congestion avoidance are:
+
+    * MAY increment cwnd by SMSS bytes
+
+    * SHOULD increment cwnd per equation (2) once per RTT
+
+    * MUST NOT increment cwnd by more than SMSS bytes
+
+...
+
+The RECOMMENDED way to increase cwnd during congestion avoidance is
+to count the number of bytes that have been acknowledged by ACKs for
+new data.  (A drawback of this implementation is that it requires
+maintaining an additional state variable.)  When the number of bytes
+acknowledged reaches cwnd, then cwnd can be incremented by up to SMSS
+bytes.  
+```
+<https://datatracker.ietf.org/doc/html/rfc5681#page-6>
+
+### `tcp:tx_start`
+
+This is triggered when the first transmit occurs while no packets are in flight, i.e. at the start of the connection. This is important as it allows us to detect new connection establishment.
 
 
 ---
