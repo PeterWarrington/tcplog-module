@@ -6,6 +6,12 @@ void log_unregister(void);
 
 static u32 log_get_cwnd(struct sock *sk);
 
+static u32 log_get_mss(struct sock *sk);
+
+static u32 log_get_recv_wnd(struct sock *sk);
+
+static u32 log_get_snd_wnd(struct sock *sk);
+
 u32 log_ssthresh(struct sock *sk);
 
 void log_cong_avoid(struct sock *sk, u32 ack, u32 acked);
