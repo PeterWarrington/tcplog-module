@@ -63,7 +63,11 @@ The data field uses the formal specified 'data field definitions' found in stand
 
 ## TCPlog event types
 
-The following event types are relevant to TCPlog, ordered by approximate development priority: `tcp:in_ack_event`, `tcp:tx_start`, `tcp:cwnd_restart`, `tcp:packet_lost`, `tcp:packet_sent`.
+The following event types are relevant to TCPlog, ordered by approximate development priority: `tcp:in_ack_event`, `tcp:tx_start`, `tcp:cwnd_restart`, `tcp:packet_lost`, and seperately `tcp:packet_sent`.
+
+These events have been selected as they are crucial to understanding the functioning of TCP congestion control. The first group of events all trigger congestion window checks in the kernel, and are directly exposed by the congestion control module mechanism, which provides callbacks on these events.
+
+`tcp:packet_sent` is the most fundamental TCP event generally as it directly relates to the sending of packets, akin to a packet capture - though provides no new information compared to it, and is more difficult to implement.
 
 ### `tcp:in_ack_event`
 
