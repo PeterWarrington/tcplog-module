@@ -3,6 +3,7 @@
 This document lists the requirements that the TCPlog project must meet. Minor changes and additions are to be expected as work continues.
 
 \* = Non-core
+- [P] = Partial
 
 ## Design
 
@@ -14,11 +15,11 @@ This document lists the requirements that the TCPlog project must meet. Minor ch
 
 ## Module
 
-- [ ] Logs information in a way that an admin user can access.
+- [X] Logs information in a way that an admin user can access.
     To the kernel log ring is fine in the short term but eventually:
     - [ ] Log information to a character device file
-- [ ] Log all `cwnd` changes
-- [ ] Log TCP standard state changes
+- [X] Log all `cwnd` changes
+- [P] Log TCP standard state changes
 - [ ] \* Log kernel implementation state changes
 - [ ] \* Log packet sent and received events
 
@@ -32,11 +33,11 @@ This document lists the requirements that the TCPlog project must meet. Minor ch
 
 *Beyond the obvious required sections*
 
-- [ ] Description of TCP states
+- [X] Description of TCP states
 - [ ] Diagrams showing core TCP state changes and Sender-Receiver interactions
     - [ ] Slow start
-    - [ ] Congestion Avoidance
-- [ ] Description of TCP variables
+    - [X] Congestion Avoidance
+- [X] Description of TCP variables
 - [ ] Summarisation of format design, and crucially the choices made
 
     *Formal specification of specifics best placed elsewhere*
