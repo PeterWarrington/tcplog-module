@@ -28,7 +28,7 @@ This document lists the requirements that the TCPlog project must meet. Minor ch
 - [ ] Interactive graph of how `cwnd` changes
 - [ ] Graphically represent packets, RTT, and packet loss
 
-## Dissertation
+## Dissertation
 
 *Beyond the obvious required sections*
 
