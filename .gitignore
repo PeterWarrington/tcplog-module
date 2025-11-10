@@ -8,3 +8,4 @@
 *.mod.c
 .vagrant/
 requirements-analysis.md
+.DS_Store
