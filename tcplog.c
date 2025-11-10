@@ -43,6 +43,35 @@ static u32 log_get_cwnd(struct sock *sk) {
     return tcp_snd_cwnd(tcp_sk(sk));
 }
 
+static u32 log_get_mss(struct sock *sk) {
+    struct tcp_sock *tp = tcp_sk(sk);
+    // Get maximum segment size based on cached values
+    u32 mss = tp->mss_cache ? tp->mss_cache : tp->advmss ? tp->advmss : 1;
+    return mss;
+}
+
+static u32 log_get_recv_wnd(struct sock *sk) {
+    struct tcp_sock *tp = tcp_sk(sk);
+    u32 win_bytes = tcp_receive_window(tp);
+
+    u32 mss = log_get_mss(sk); 
+
+    if (!mss)
+        return 0;
+    return win_bytes / mss;
+}
+
+static u32 log_get_snd_wnd(struct sock *sk) {
+    struct tcp_sock *tp = tcp_sk(sk);
+    u32 win_bytes = tp->snd_wnd;
+
+    u32 mss = log_get_mss(sk); 
+
+    if (!mss)
+        return 0;
+    return win_bytes / mss;
+}
+
 u32 log_ssthresh(struct sock *sk) {
     pr_info("TCPLog: ssthresh\n");
     return tcp_reno_ssthresh(sk);
@@ -69,7 +98,8 @@ void log_cwnd_event(struct sock *sk, enum tcp_ca_event ev) {
 }
 
 void log_in_ack_event(struct sock *sk, u32 flags) {
-    pr_info("TCPLog: in_ack_event - cwnd=%d\n", log_get_cwnd(sk));
+    pr_info("TCPLog: in_ack_event - cwnd=%d, recv_wnd=%d, snd_wnd=%d\n",
+            log_get_cwnd(sk), log_get_recv_wnd(sk), log_get_snd_wnd(sk));
     return;
 }
 
