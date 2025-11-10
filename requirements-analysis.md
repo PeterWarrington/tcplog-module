@@ -38,6 +38,7 @@ This document lists the requirements that the TCPlog project must meet. Minor ch
     - [ ] Congestion Avoidance
 - [ ] Description of TCP variables
 - [ ] Summarisation of format design, and crucially the choices made
+
     *Formal specification of specifics best placed elsewhere*
 - [ ] Detail of any differences between implementation and standard (little literature on this as yet)
 
