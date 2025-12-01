@@ -1,5 +1,18 @@
 #include <linux/types.h>
 
+void tcplog_log(const char *msg);
+
+static int tcplog_device_open(struct inode *inode, struct file *file);
+
+static int tcplog_device_release(struct inode *inode, struct file *file);
+
+static ssize_t tcplog_device_read(struct file *file, char __user *user_buffer, size_t requested_bytes, loff_t *file_offset);
+
+static ssize_t tcplog_device_write(struct file *filp,
+   const char *buff,
+   size_t len,
+   loff_t *off);
+
 int log_register(void);
 
 void log_unregister(void);

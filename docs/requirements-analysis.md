@@ -7,9 +7,8 @@ This document lists the requirements that the TCPlog project must meet. Minor ch
 
 ## Design
 
-- [ ] Have sustainable work plan
-- [ ] Create design of logging format
-- [ ] Logging compatability with qlog specification, where desirable.
+- [X] Create design of logging format
+- [X] Logging compatability with qlog specification, where desirable.
 - [ ] Tolerance in logging format for network stack implementation differences, including support for specifically logging individual implementation quirks where relevant.
 - [ ] \* Design for how visualisation tools would utilise TCPlog output.
 
@@ -34,11 +33,11 @@ This document lists the requirements that the TCPlog project must meet. Minor ch
 *Beyond the obvious required sections*
 
 - [X] Description of TCP states
-- [ ] Diagrams showing core TCP state changes and Sender-Receiver interactions
-    - [ ] Slow start
+- [X] Diagrams showing core TCP state changes and Sender-Receiver interactions
+    - [X] Slow start
     - [X] Congestion Avoidance
 - [X] Description of TCP variables
-- [ ] Summarisation of format design, and crucially the choices made
+- [X] Summarisation of format design, and crucially the choices made
 
     *Formal specification of specifics best placed elsewhere*
 - [ ] Detail of any differences between implementation and standard (little literature on this as yet)

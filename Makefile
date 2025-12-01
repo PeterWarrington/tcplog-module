@@ -11,6 +11,7 @@ clean:
 install: uninstall all
 	-sudo insmod ./tcplog.ko
 	sudo /sbin/sysctl -w net.ipv4.tcp_congestion_control=tcplog
+	bash -c 'MAJOR=$$(cat /proc/devices | grep -P "\d* tcplog" | grep -Po "\d*" | head -1); sudo mknod /dev/tcplog c "$$MAJOR" 0'
 
 all-install: all install
 

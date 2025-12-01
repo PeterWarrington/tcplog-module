@@ -1,0 +1,45 @@
+{
+    "configurations": [
+        {
+            "name": "TCPLog",
+            "defines": [
+                "KBUILD_MODNAME=\"\"",
+                "__GNUC__",
+                "__KERNEL__",
+                "MODULE"
+            ],
+            "includePath": [
+                "${workspaceFolder}/**",
+                "/usr/include",
+                "/usr/local/include",
+                "/usr/src/linux-headers-6.8.0-51/include",
+                "/usr/src/linux-headers-6.8.0-51-generic/include",
+                "/usr/lib/gcc/aarch64-linux-gnu/13/include/",
+                "/lib/modules/6.8.0-51-generic/build/include",
+                "/lib/modules/6.8.0-51-generic/build/include/generated",
+                "/lib/modules/6.8.0-51-generic/build/include/uapi",
+                "/lib/modules/6.8.0-51-generic/build/arch/arm64/include",
+                "/lib/modules/6.8.0-51-generic/build/arch/arm64/include/generated"
+                ,
+                "/usr/src/linux-headers-6.8.0-51/arch/arm64/include",
+                "/usr/src/linux-headers-6.8.0-51/include/asm-generic"
+            ],
+            "browse": {
+                "path": [
+                    "${workspaceFolder}",
+                    "/lib/modules/6.8.0-51-generic/build",
+                    "/lib/modules/6.8.0-51-generic/build/include",
+                    "/lib/modules/6.8.0-51-generic/build/arch/arm64/include",
+                    "/usr/src/linux-headers-6.8.0-51/include",
+                    "/usr/src/linux-headers-6.8.0-51/arch/arm64/include",
+                    "/usr/src/linux-headers-6.8.0-51/include/asm-generic"
+                ],
+                "limitSymbolsToIncludedHeaders": true,
+                "databaseFilename": "${workspaceFolder}/.vscode/vc.db"
+            },
+            "compilerPath": "/usr/bin/aarch64-linux-gnu-gcc",
+            "configurationProvider": "ms-vscode.cpptools"
+        }
+    ],
+    "version": 4
+}

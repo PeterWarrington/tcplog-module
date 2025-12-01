@@ -1,0 +1,6 @@
+{
+    "files.associations": {
+        "*.llvm": "llvm",
+        "inet_diag.h": "c"
+    }
+}
