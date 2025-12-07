@@ -4,6 +4,7 @@
 #include <linux/inet_diag.h>
 #include <linux/inet.h>
 #include <linux/string.h>
+#include <linux/ktime.h>
 
 #include "tcplog.h"
 
@@ -26,13 +27,24 @@ static char* log_ca_states[] = {
     "TCP_CA_Loss",      /* The sender is in loss recovery triggered by retransmission timeout. */
 };
 
+#define DMESG_VERBOSE 0
+
 // For Character Device logging
 #define DEVICE_NAME "tcplog"
-#define LOG_BUF_SIZE 4096
+#define LOG_BUF_ENTRY_SIZE 128
+#define LOG_BUF_ENTRY_COUNT_MAX 8
+
 static DEFINE_MUTEX(tcplog_mutex);
-static int tcplog_device_semaphore = 0;
-static char tcplog_buffer[LOG_BUF_SIZE];
-static int tcplog_pos = 0;
+static DECLARE_WAIT_QUEUE_HEAD(tcplog_wq);
+static char tcplog_buffer[LOG_BUF_ENTRY_COUNT_MAX][LOG_BUF_ENTRY_SIZE];
+static int tcplog_write_index = 0;
+static int tcplog_read_index = 0;
+static int tcplog_entry_count = 0;
+static int tcplog_last_read_index = 0;
+static int tcplog_entry_len[LOG_BUF_ENTRY_COUNT_MAX];
+static bool tcplog_buf_read_ready = false;
+static u64 tcplog_last_read_time = 0;
+static int tcplog_dev_semaphore = 0;
 static struct file_operations tcplog_device_ops = {
   .read = tcplog_device_read,
   .write = tcplog_device_write,
@@ -42,59 +54,116 @@ static struct file_operations tcplog_device_ops = {
 
 void tcplog_log(const char *msg)
 {
+    printk("%s", msg);
+    mutex_lock(&tcplog_mutex);
     int msg_len = strlen(msg);
 
-    mutex_lock(&tcplog_mutex);
+    if (msg_len >= LOG_BUF_ENTRY_SIZE) {
+        msg_len = LOG_BUF_ENTRY_SIZE - 1;
+    }
+    tcplog_buffer[tcplog_write_index][msg_len] = '\0';
+
+    memcpy(tcplog_buffer[tcplog_write_index], msg, msg_len);
+    tcplog_entry_len[tcplog_write_index] = msg_len;
+
+    tcplog_write_index = (tcplog_write_index + 1) % LOG_BUF_ENTRY_COUNT_MAX;
+    if (tcplog_write_index == tcplog_read_index)
+        tcplog_read_index = (tcplog_read_index + 1) % LOG_BUF_ENTRY_COUNT_MAX;
     
-    if (tcplog_pos + msg_len >= LOG_BUF_SIZE)
-        tcplog_pos = 0; // wrap-around
+    tcplog_entry_count = min(tcplog_entry_count + 1, 8);
 
-    memcpy(tcplog_buffer + tcplog_pos, msg, msg_len);
-    tcplog_pos += msg_len;
+    // If we have filled entries or 50 miliseconds have passed, then flush them to readers
+    u64 current_time = ktime_get_ns();
+    u64 time_since_last_read = current_time - tcplog_last_read_time;
+    if (tcplog_read_index == tcplog_last_read_index || time_since_last_read > 50 * 1000) {
+        tcplog_last_read_index = tcplog_read_index;
 
-    mutex_unlock(&tcplog_mutex);
+        if (DMESG_VERBOSE)
+            printk("DEV_TCPLOG: READY");
+        tcplog_buf_read_ready = true;
+        tcplog_last_read_time = current_time;
+        mutex_unlock(&tcplog_mutex);
+        // wake any readers waiting for new data 
+        wake_up_interruptible(&tcplog_wq);
+    } else {
+        if (DMESG_VERBOSE)
+            printk("DEV_TCPLOG: NOT READY");
+        tcplog_buf_read_ready = false;
+        mutex_unlock(&tcplog_mutex);
+    }
 }
 
 static int tcplog_device_open(struct inode *inode, struct file *file)
 {
-    if (tcplog_device_semaphore) return -EBUSY;
-    tcplog_device_semaphore++;
-
+    if (tcplog_dev_semaphore)
+        return -EBUSY;
+    tcplog_dev_semaphore++;
     return 0;
 }
 
 static int tcplog_device_release(struct inode *inode, struct file *file)
 {
-    tcplog_device_semaphore--;
+    tcplog_dev_semaphore--;
     return 0;
 }
 
 static ssize_t tcplog_device_read(struct file *file, char __user *user_buffer, size_t requested_bytes, loff_t *file_offset)
 {
-    size_t available_bytes;
-    size_t bytes_to_copy;
-
     mutex_lock(&tcplog_mutex);
 
-    if (*file_offset >= tcplog_pos) {
+    // Wait until buffer is ready for reading
+    if (!tcplog_buf_read_ready) {
         mutex_unlock(&tcplog_mutex);
-        return 0; // EOF
+        if (DMESG_VERBOSE)
+            printk("DEV_TCPLOG: WAITING");
+        if (wait_event_interruptible(tcplog_wq, tcplog_buf_read_ready))
+            return -ERESTARTSYS;
+        mutex_lock(&tcplog_mutex);
+    } else {
+        if (DMESG_VERBOSE)
+            printk("DEV_TCPLOG: NOT WAITING");
     }
 
-    available_bytes = tcplog_pos - *file_offset;
+    int segment1_start_index = tcplog_read_index;
 
-    bytes_to_copy = min(available_bytes, requested_bytes);
+    size_t copied = 0;
+    int entries_consumed = 0;
+    int entries_available = tcplog_entry_count;
 
-    if (copy_to_user(user_buffer, tcplog_buffer + *file_offset, bytes_to_copy)) {
-        mutex_unlock(&tcplog_mutex);
-        return -EFAULT;
+    int i = segment1_start_index;
+    int to_process = entries_available;
+    for (int n = 0; n < to_process && requested_bytes > 0; n++) {
+        int this_len = tcplog_entry_len[i];
+        size_t will_copy = min_t(size_t, (size_t)this_len, requested_bytes);
+        if (will_copy) {
+            if (copy_to_user(((char __user *)user_buffer) + copied, tcplog_buffer[i], will_copy)) {
+                mutex_unlock(&tcplog_mutex);
+                return -EFAULT;
+            }
+            copied += will_copy;
+            requested_bytes -= will_copy;
+        }
+        i = (i + 1) % LOG_BUF_ENTRY_COUNT_MAX;
+        entries_consumed++;
+        entries_available--;
+        if (i == tcplog_write_index)
+            break;
     }
 
-    *file_offset += bytes_to_copy;
+    if (entries_consumed > 0) {
+        tcplog_read_index = (tcplog_read_index + entries_consumed) % LOG_BUF_ENTRY_COUNT_MAX;
+        tcplog_entry_count = max(0, tcplog_entry_count - entries_consumed);
+        tcplog_last_read_time = ktime_get_ns();
+    }
+    size_t to_copy = copied;
+
+    if (DMESG_VERBOSE)
+        printk("DEV_TCPLOG: WRITTEN");
+
+    tcplog_buf_read_ready = false;
 
     mutex_unlock(&tcplog_mutex);
-
-    return bytes_to_copy;
+    return (ssize_t)to_copy;
 }
 
 static ssize_t tcplog_device_write(struct file *filp,
@@ -161,9 +230,10 @@ u32 log_ssthresh(struct sock *sk) {
 }
 
 void log_cong_avoid(struct sock *sk, u32 ack, u32 acked) {
-    char buffer[512];
+    char *buffer = kmalloc(512, GFP_KERNEL);
     sprintf(buffer, "TCPLog: cong_avoid - cwnd=%d\n", log_get_cwnd(sk));
     tcplog_log(buffer);
+    kfree(buffer);
     return tcp_reno_cong_avoid(sk, ack, acked);
 }
 
@@ -173,24 +243,27 @@ u32 log_undo_cwnd(struct sock *sk) {
 }
 
 void log_set_state(struct sock *sk, u8 new_state) {
-    char buffer[512];
+    char *buffer = kmalloc(512, GFP_KERNEL);
     sprintf(buffer, "TCPLog: set_state - state=%s - cwnd=%d\n", log_ca_states[new_state], log_get_cwnd(sk));
     tcplog_log(buffer);
+    kfree(buffer);
     return;
 }
 
 void log_cwnd_event(struct sock *sk, enum tcp_ca_event ev) {
-    char buffer[512];
+    char *buffer = kmalloc(512, GFP_KERNEL);
     sprintf(buffer, "TCPLog: cwnd_event - ev=%s, cwnd=%d\n", log_ca_events[ev], log_get_cwnd(sk));
     tcplog_log(buffer);
+    kfree(buffer);
     return;
 }
 
 void log_in_ack_event(struct sock *sk, u32 flags) {
-    char buffer[512];
+    char *buffer = kmalloc(512, GFP_KERNEL);
     sprintf(buffer, "TCPLog: in_ack_event - cwnd=%d, recv_wnd=%d, snd_wnd=%d\n",
             log_get_cwnd(sk), log_get_recv_wnd(sk), log_get_snd_wnd(sk));
     tcplog_log(buffer);
+    kfree(buffer);
     return;
 }
 
