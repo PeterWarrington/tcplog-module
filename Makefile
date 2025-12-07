@@ -11,7 +11,8 @@ clean:
 install: uninstall all
 	-sudo insmod ./tcplog.ko
 	sudo /sbin/sysctl -w net.ipv4.tcp_congestion_control=tcplog
-	bash -c 'MAJOR=$$(cat /proc/devices | grep -P "\d* tcplog" | grep -Po "\d*" | head -1); sudo mknod /dev/tcplog c "$$MAJOR" 0'
+	-sudo rm -f /dev/tcplog
+	bash -c 'MAJOR=$$(cat /proc/devices | grep -P "\d* tcplog" | grep -Po "\d*" | tail -1); sudo mknod /dev/tcplog c "$$MAJOR" 0'
 
 all-install: all install
 
@@ -24,3 +25,12 @@ test-upload:
 
 test-download:
 	curl http://ipv4.download.thinkbroadband.com/512MB.zip --output /dev/null
+
+test-tiny:
+	curl http://example.com --output /dev/null
+
+view-log:
+	tail +1f /dev/tcplog
+
+dmesg:
+	sudo dmesg -w
