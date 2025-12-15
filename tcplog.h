@@ -1,6 +1,38 @@
 #include <linux/types.h>
 
+#define EVENT_NAMESPACE "tcplog:"
+
+struct tcplog_extra_data {
+   u32 ack;
+   u32 acked;
+   u8 new_state;
+   enum tcp_ca_event ev;
+   u32 flags;
+};
+
+enum TcplogEvents {
+   CONNECTION_STARTED,
+   PACKET_SENT,
+   PACKET_RECEIVED,
+   PACKET_DROPPED,
+   PACKETS_ACKED,
+   STATE_UPDATED,
+   IMPLEMENTATION_SPECIFIC
+};
+
+static char* tcplog_event_names[] = {
+   EVENT_NAMESPACE "connection_started",
+   EVENT_NAMESPACE "packet_sent",
+   EVENT_NAMESPACE "packet_received",
+   EVENT_NAMESPACE "packet_dropped",
+   EVENT_NAMESPACE "packets_acked",
+   EVENT_NAMESPACE "state_updated",
+   EVENT_NAMESPACE "implementation_specific",
+};
+
 void tcplog_log(const char *msg);
+
+void tcplog_log_event(char* event_name, struct sock *sk, struct tcplog_extra_data *extra);
 
 static int tcplog_device_open(struct inode *inode, struct file *file);
 
@@ -23,7 +55,9 @@ static u32 log_get_mss(struct sock *sk);
 
 static u32 log_get_recv_wnd(struct sock *sk);
 
-static u32 log_get_snd_wnd(struct sock *sk);
+static u32 log_get_initial_wnd(struct sock *sk);
+
+static u32 log_get_ssthresh(struct sock *sk);
 
 u32 log_ssthresh(struct sock *sk);
 

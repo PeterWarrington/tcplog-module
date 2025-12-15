@@ -17,8 +17,11 @@ install: uninstall all
 all-install: all install
 
 uninstall:
+	-sudo rm -f /dev/tcplog
+	-sudo ifconfig enp0s3 down
 	-sudo /sbin/sysctl -w net.ipv4.tcp_congestion_control=cubic
 	-sudo rmmod tcplog -f
+	-sudo ifconfig enp0s3 up
 
 test-upload:
 	curl -s https://raw.githubusercontent.com/sivel/speedtest-cli/master/speedtest.py | python3 - --no-download --single --secure
@@ -28,6 +31,9 @@ test-download:
 
 test-tiny:
 	curl http://example.com --output /dev/null
+
+test-lossy:
+	nc 192.0.2.1 5555 < /dev/null
 
 view-log:
 	tail +1f /dev/tcplog

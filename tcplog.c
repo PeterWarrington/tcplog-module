@@ -5,6 +5,7 @@
 #include <linux/inet.h>
 #include <linux/string.h>
 #include <linux/ktime.h>
+#include <linux/spinlock.h>
 
 #include "tcplog.h"
 
@@ -27,14 +28,37 @@ static char* log_ca_states[] = {
     "TCP_CA_Loss",      /* The sender is in loss recovery triggered by retransmission timeout. */
 };
 
+static char event_template[] = "{\n"
+    "\t\"time\": $TIME,\n"
+    "\t\"name\": \"$NAME\",\n"
+    "\t\"data\": {\n"
+    "\t\t\"source_port\": \"$SPRT\",\n"
+    "\t\t\"destination_port\": \"$DPRT\",\n"
+    "\t\t\"state\": \"$STAT\",\n"
+    "\t\t\"state_variables\": {\n"
+    "\t\t\t\"cwnd\": $CWND,\n"
+    "\t\t\t\"iw\": $IWND,\n"
+    "\t\t\t\"rwnd\": $RWND,\n"
+    "\t\t\t\"ssthresh\": $STHR,\n"
+    "\t\t\t\"prior_cwnd\": $PWND,\n"
+    "\t\t\t\"prr_delivered\": $PDLV,\n"
+    "\t\t\t\"prr_out\": $POUT,\n"
+    "\t\t},\n"
+    "\t$DATA\n"
+    "\t}\n"
+    "}\n";
+
 #define DMESG_VERBOSE 0
+#define DMESG_LOG 1
+
+#define TEMPLATE_TOKEN_SIZE 5
 
 // For Character Device logging
 #define DEVICE_NAME "tcplog"
-#define LOG_BUF_ENTRY_SIZE 128
-#define LOG_BUF_ENTRY_COUNT_MAX 8
+#define LOG_BUF_ENTRY_SIZE 2048
+#define LOG_BUF_ENTRY_COUNT_MAX 32
 
-static DEFINE_MUTEX(tcplog_mutex);
+static spinlock_t tcplog_lock;
 static DECLARE_WAIT_QUEUE_HEAD(tcplog_wq);
 static char tcplog_buffer[LOG_BUF_ENTRY_COUNT_MAX][LOG_BUF_ENTRY_SIZE];
 static int tcplog_write_index = 0;
@@ -54,8 +78,10 @@ static struct file_operations tcplog_device_ops = {
 
 void tcplog_log(const char *msg)
 {
-    printk("%s", msg);
-    mutex_lock(&tcplog_mutex);
+    if (DMESG_LOG)
+        printk("%s", msg);
+        
+    spin_lock_bh(&tcplog_lock);
     int msg_len = strlen(msg);
 
     if (msg_len >= LOG_BUF_ENTRY_SIZE) {
@@ -82,15 +108,120 @@ void tcplog_log(const char *msg)
             printk("DEV_TCPLOG: READY");
         tcplog_buf_read_ready = true;
         tcplog_last_read_time = current_time;
-        mutex_unlock(&tcplog_mutex);
+        spin_unlock_bh(&tcplog_lock);
         // wake any readers waiting for new data 
         wake_up_interruptible(&tcplog_wq);
     } else {
         if (DMESG_VERBOSE)
             printk("DEV_TCPLOG: NOT READY");
         tcplog_buf_read_ready = false;
-        mutex_unlock(&tcplog_mutex);
+        spin_unlock_bh(&tcplog_lock);
     }
+}
+
+void tcplog_log_event(char* event_name, struct sock *sk, struct tcplog_extra_data *extra) {
+    char *local_buffer = kmalloc(LOG_BUF_ENTRY_SIZE, GFP_ATOMIC);
+    int buf_i = 0;
+
+    char token_buffer[TEMPLATE_TOKEN_SIZE] = "\0";
+    int token_i = 0;
+    bool in_token = false;
+
+    int template_i = 0;
+    char template_c = '\0';
+    do {
+        template_c = event_template[template_i++];
+        if (DMESG_VERBOSE)
+            printk("DEV_TCPLOG: tcplog_log_event - token_buffer=%s, template_c='%c', in_token=%d\n", token_buffer, template_c, in_token);
+        if ((template_c == '$' || in_token) && token_i < TEMPLATE_TOKEN_SIZE) {
+            in_token = true;
+            token_buffer[token_i++] = template_c;
+        } else {
+            token_buffer[token_i++] = '\0';
+            if (in_token) {
+                // token_buffer should have token
+                in_token = false;
+                if (strcmp(token_buffer, "$NAME") == 0) {
+                    for (int i=0; event_name[i] != '\0'; i++) local_buffer[buf_i++] = event_name[i];
+                } else if (strcmp(token_buffer, "$CWND") == 0) {
+                    u32 cwnd = log_get_cwnd(sk);
+                    char var_buf[16] = "\0";
+                    sprintf(var_buf, "%d", cwnd);
+                    for (int i=0; var_buf[i] != '\0'; i++) local_buffer[buf_i++] = var_buf[i];
+                } else if (strcmp(token_buffer, "$IWND") == 0) {
+                    u32 iw = log_get_initial_wnd(sk);
+                    char var_buf[16] = "\0";
+                    sprintf(var_buf, "%d", iw);
+                    for (int i=0; var_buf[i] != '\0'; i++) local_buffer[buf_i++] = var_buf[i];
+                } else if (strcmp(token_buffer, "$RWND") == 0) {
+                    u32 rw = log_get_recv_wnd(sk);
+                    char var_buf[16] = "\0";
+                    sprintf(var_buf, "%d", rw);
+                    for (int i=0; var_buf[i] != '\0'; i++) local_buffer[buf_i++] = var_buf[i];
+                } else if (strcmp(token_buffer, "$STHR") == 0) {
+                    u32 ssthresh = log_get_ssthresh(sk);
+                    char var_buf[16] = "\0";
+                    sprintf(var_buf, "%d", ssthresh);
+                    for (int i=0; var_buf[i] != '\0'; i++) local_buffer[buf_i++] = var_buf[i];
+                } else if (strcmp(token_buffer, "$PWND") == 0) {
+                    u32 pwnd = tcp_sk(sk)->prior_cwnd;
+                    char var_buf[16] = "\0";
+                    sprintf(var_buf, "%d", pwnd);
+                    for (int i=0; var_buf[i] != '\0'; i++) local_buffer[buf_i++] = var_buf[i];
+                } else if (strcmp(token_buffer, "$PDLV") == 0) {
+                    u32 pdlv = tcp_sk(sk)->prr_delivered;
+                    char var_buf[16] = "\0";
+                    sprintf(var_buf, "%d", pdlv);
+                    for (int i=0; var_buf[i] != '\0'; i++) local_buffer[buf_i++] = var_buf[i];
+                } else if (strcmp(token_buffer, "$POUT") == 0) {
+                    u32 pdlv = tcp_sk(sk)->prr_out;
+                    char var_buf[16] = "\0";
+                    sprintf(var_buf, "%d", pdlv);
+                    for (int i=0; var_buf[i] != '\0'; i++) local_buffer[buf_i++] = var_buf[i];
+                } else if (strcmp(token_buffer, "$TIME") == 0) {
+                    u64 etime = ktime_get_real_ns() / 1000000;
+                    char var_buf[16] = "\0";
+                    sprintf(var_buf, "%lld", etime);
+                    for (int i=0; var_buf[i] != '\0'; i++) local_buffer[buf_i++] = var_buf[i];
+                } else if (strcmp(token_buffer, "$DATA") == 0) {
+                    if (strcmp(event_name, tcplog_event_names[IMPLEMENTATION_SPECIFIC]) == 0 && extra != NULL) {
+                        if (extra->ev >= 0 && extra->ev < sizeof log_ca_events) {
+                            char ca_event_start[] = "\"ca_event\": \"";
+                            for (int i=0; ca_event_start[i] != '\0'; i++) local_buffer[buf_i++] = ca_event_start[i];
+                            char *event_name = log_ca_events[extra->ev];
+                            for (int i=0; event_name[i] != '\0'; i++) local_buffer[buf_i++] = event_name[i];
+                            char ca_event_end[] = "\",";
+                            for (int i=0; ca_event_end[i] != '\0'; i++) local_buffer[buf_i++] = ca_event_end[i];
+                        }
+                    }
+                } else if (strcmp(token_buffer, "$STAT") == 0) {
+                    bool in_slow_start = tcp_in_slow_start(tcp_sk(sk));
+                    char state[] = "CONGESTION_AVOIDANCE???";
+                    if (in_slow_start)
+                        strcpy(state, "SLOW_START");
+                    for (int i=0; state[i] != '\0'; i++) local_buffer[buf_i++] = state[i];
+                } else if (strcmp(token_buffer, "$SPRT") == 0) {
+                    u16 sport = ntohs(sk->__sk_common.skc_num);
+                    char var_buf[16] = "\0";
+                    sprintf(var_buf, "%d", sport);
+                    for (int i=0; var_buf[i] != '\0'; i++) local_buffer[buf_i++] = var_buf[i];
+                } else if (strcmp(token_buffer, "$DPRT") == 0) {
+                    u16 dport = ntohs(sk->__sk_common.skc_dport);
+                    char var_buf[16] = "\0";
+                    sprintf(var_buf, "%d", dport);
+                    for (int i=0; var_buf[i] != '\0'; i++) local_buffer[buf_i++] = var_buf[i];
+                }
+            }
+            token_buffer[0] = '\0';
+            token_i = 0;
+            local_buffer[buf_i++] = template_c;
+        }
+    } while (template_c != '\0' && buf_i < LOG_BUF_ENTRY_SIZE);
+    local_buffer[buf_i] = '\0';
+
+    tcplog_log(local_buffer);
+
+    kfree(local_buffer);
 }
 
 static int tcplog_device_open(struct inode *inode, struct file *file)
@@ -109,35 +240,33 @@ static int tcplog_device_release(struct inode *inode, struct file *file)
 
 static ssize_t tcplog_device_read(struct file *file, char __user *user_buffer, size_t requested_bytes, loff_t *file_offset)
 {
-    mutex_lock(&tcplog_mutex);
+    spin_lock_bh(&tcplog_lock);
 
     // Wait until buffer is ready for reading
     if (!tcplog_buf_read_ready) {
-        mutex_unlock(&tcplog_mutex);
+        spin_unlock_bh(&tcplog_lock);
         if (DMESG_VERBOSE)
             printk("DEV_TCPLOG: WAITING");
         if (wait_event_interruptible(tcplog_wq, tcplog_buf_read_ready))
             return -ERESTARTSYS;
-        mutex_lock(&tcplog_mutex);
+        spin_lock_bh(&tcplog_lock);
     } else {
         if (DMESG_VERBOSE)
             printk("DEV_TCPLOG: NOT WAITING");
     }
 
-    int segment1_start_index = tcplog_read_index;
-
-    size_t copied = 0;
+    size_t copied = 0;  
     int entries_consumed = 0;
     int entries_available = tcplog_entry_count;
 
-    int i = segment1_start_index;
+    int i = tcplog_read_index;
     int to_process = entries_available;
     for (int n = 0; n < to_process && requested_bytes > 0; n++) {
         int this_len = tcplog_entry_len[i];
         size_t will_copy = min_t(size_t, (size_t)this_len, requested_bytes);
         if (will_copy) {
             if (copy_to_user(((char __user *)user_buffer) + copied, tcplog_buffer[i], will_copy)) {
-                mutex_unlock(&tcplog_mutex);
+                spin_unlock_bh(&tcplog_lock);
                 return -EFAULT;
             }
             copied += will_copy;
@@ -162,7 +291,7 @@ static ssize_t tcplog_device_read(struct file *file, char __user *user_buffer, s
 
     tcplog_buf_read_ready = false;
 
-    mutex_unlock(&tcplog_mutex);
+    spin_unlock_bh(&tcplog_lock);
     return (ssize_t)to_copy;
 }
 
@@ -178,6 +307,8 @@ static ssize_t tcplog_device_write(struct file *filp,
 int log_register(void)
 {
     pr_info("TCPlog register\n");
+
+    spin_lock_init(&tcplog_lock);
 
     register_chrdev(0, DEVICE_NAME, &tcplog_device_ops);
 
@@ -213,9 +344,8 @@ static u32 log_get_recv_wnd(struct sock *sk) {
     return win_bytes / mss;
 }
 
-static u32 log_get_snd_wnd(struct sock *sk) {
-    struct tcp_sock *tp = tcp_sk(sk);
-    u32 win_bytes = tp->snd_wnd;
+static u32 log_get_initial_wnd(struct sock *sk) {
+    u32 win_bytes = tcp_rwnd_init_bpf(sk);
 
     u32 mss = log_get_mss(sk); 
 
@@ -224,46 +354,50 @@ static u32 log_get_snd_wnd(struct sock *sk) {
     return win_bytes / mss;
 }
 
+static u32 log_get_ssthresh(struct sock *sk) {
+    u32 ssthresh = tcp_current_ssthresh(sk);
+
+    u32 mss = log_get_mss(sk); 
+
+    if (!mss)
+        return 0;
+    return ssthresh / mss;
+}
+
 u32 log_ssthresh(struct sock *sk) {
-    tcplog_log("TCPLog: ssthresh\n");
     return tcp_reno_ssthresh(sk);
 }
 
 void log_cong_avoid(struct sock *sk, u32 ack, u32 acked) {
-    char *buffer = kmalloc(512, GFP_KERNEL);
-    sprintf(buffer, "TCPLog: cong_avoid - cwnd=%d\n", log_get_cwnd(sk));
-    tcplog_log(buffer);
-    kfree(buffer);
     return tcp_reno_cong_avoid(sk, ack, acked);
 }
 
 u32 log_undo_cwnd(struct sock *sk) {
-    tcplog_log("TCPLog: undo_cwnd");
     return tcp_reno_undo_cwnd(sk);
 }
 
 void log_set_state(struct sock *sk, u8 new_state) {
-    char *buffer = kmalloc(512, GFP_KERNEL);
+    char buffer[512];
     sprintf(buffer, "TCPLog: set_state - state=%s - cwnd=%d\n", log_ca_states[new_state], log_get_cwnd(sk));
     tcplog_log(buffer);
-    kfree(buffer);
     return;
 }
 
 void log_cwnd_event(struct sock *sk, enum tcp_ca_event ev) {
-    char *buffer = kmalloc(512, GFP_KERNEL);
-    sprintf(buffer, "TCPLog: cwnd_event - ev=%s, cwnd=%d\n", log_ca_events[ev], log_get_cwnd(sk));
-    tcplog_log(buffer);
-    kfree(buffer);
+    char *event_name = tcplog_event_names[IMPLEMENTATION_SPECIFIC];
+    struct tcplog_extra_data data;
+    data.ev = ev;
+    if (ev == CA_EVENT_TX_START) {
+        event_name = tcplog_event_names[CONNECTION_STARTED];
+    } else if (ev == CA_EVENT_LOSS) {
+        event_name = tcplog_event_names[PACKET_DROPPED];
+    }
+    tcplog_log_event(event_name, sk, &data);
     return;
 }
 
 void log_in_ack_event(struct sock *sk, u32 flags) {
-    char *buffer = kmalloc(512, GFP_KERNEL);
-    sprintf(buffer, "TCPLog: in_ack_event - cwnd=%d, recv_wnd=%d, snd_wnd=%d\n",
-            log_get_cwnd(sk), log_get_recv_wnd(sk), log_get_snd_wnd(sk));
-    tcplog_log(buffer);
-    kfree(buffer);
+    tcplog_log_event(tcplog_event_names[PACKETS_ACKED], sk, NULL);
     return;
 }
 
