@@ -42,11 +42,11 @@ static char event_template[] = "{\n"
     "\t\t\t\"ssthresh\": $STHR,\n"
     "\t\t\t\"prior_cwnd\": $PWND,\n"
     "\t\t\t\"prr_delivered\": $PDLV,\n"
-    "\t\t\t\"prr_out\": $POUT,\n"
-    "\t\t},\n"
+    "\t\t\t\"prr_out\": $POUT\n"
+    "\t\t}\n"
     "\t$DATA\n"
     "\t}\n"
-    "}\n";
+    "}\n\x04"; // End-Of-Transmission character for splitting JSON records
 
 #define DMESG_VERBOSE 0
 #define DMESG_LOG 1
@@ -186,11 +186,12 @@ void tcplog_log_event(char* event_name, struct sock *sk, struct tcplog_extra_dat
                 } else if (strcmp(token_buffer, "$DATA") == 0) {
                     if (strcmp(event_name, tcplog_event_names[IMPLEMENTATION_SPECIFIC]) == 0 && extra != NULL) {
                         if (extra->ev >= 0 && extra->ev < sizeof log_ca_events) {
+                            local_buffer[buf_i++] = ',';
                             char ca_event_start[] = "\"ca_event\": \"";
                             for (int i=0; ca_event_start[i] != '\0'; i++) local_buffer[buf_i++] = ca_event_start[i];
                             char *event_name = log_ca_events[extra->ev];
                             for (int i=0; event_name[i] != '\0'; i++) local_buffer[buf_i++] = event_name[i];
-                            char ca_event_end[] = "\",";
+                            char ca_event_end[] = "\"";
                             for (int i=0; ca_event_end[i] != '\0'; i++) local_buffer[buf_i++] = ca_event_end[i];
                         }
                     }
@@ -377,9 +378,9 @@ u32 log_undo_cwnd(struct sock *sk) {
 }
 
 void log_set_state(struct sock *sk, u8 new_state) {
-    char buffer[512];
-    sprintf(buffer, "TCPLog: set_state - state=%s - cwnd=%d\n", log_ca_states[new_state], log_get_cwnd(sk));
-    tcplog_log(buffer);
+    // char buffer[512];
+    // sprintf(buffer, "TCPLog: set_state - state=%s - cwnd=%d\n", log_ca_states[new_state], log_get_cwnd(sk));
+    // tcplog_log(buffer);
     return;
 }
 
