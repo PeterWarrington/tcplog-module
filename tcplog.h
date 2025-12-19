@@ -2,14 +2,6 @@
 
 #define EVENT_NAMESPACE "tcplog:"
 
-struct tcplog_extra_data {
-   u32 ack;
-   u32 acked;
-   u8 new_state;
-   enum tcp_ca_event ev;
-   u32 flags;
-};
-
 enum TcplogEvents {
    CONNECTION_STARTED,
    PACKET_SENT,
@@ -28,6 +20,26 @@ static char* tcplog_event_names[] = {
    EVENT_NAMESPACE "packets_acked",
    EVENT_NAMESPACE "state_updated",
    EVENT_NAMESPACE "implementation_specific",
+};
+
+enum TcplogDropCause {
+   RETRANSMISSION_TIMEOUT = 1,
+   TRIPLE_DUPLICATE_ACKS = 2
+};
+
+static char* tcplog_drop_cause_names[] = {
+   "UNSPECIFIED",
+   "RETRANSMISSION_TIMEOUT",
+   "TRIPLE_DUPLICATE_ACKS"
+};
+
+struct tcplog_extra_data {
+   u32 ack;
+   u32 acked;
+   u8 new_state;
+   enum tcp_ca_event ev;
+   u32 flags;
+   enum TcplogDropCause drop_cause;
 };
 
 void tcplog_log(const char *msg);

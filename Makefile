@@ -24,7 +24,7 @@ uninstall:
 	-sudo ifconfig enp0s3 up
 
 test-upload:
-	curl -s https://raw.githubusercontent.com/sivel/speedtest-cli/master/speedtest.py | python3 - --no-download --single --secure
+	curl -s https://raw.githubusercontent.com/sivel/speedtest-cli/master/speedtest.py | python3 - --no-download --mini "speedtest.telstra.net"
 
 test-download:
 	curl http://ipv4.download.thinkbroadband.com/512MB.zip --output /dev/null
@@ -33,7 +33,7 @@ test-tiny:
 	curl http://example.com --output /dev/null
 
 test-lossy:
-	nc 192.0.2.1 5555 < /dev/null
+	nc 192.0.2.1 5555 < /dev/random
 
 view-log:
 	tail +1f /dev/tcplog

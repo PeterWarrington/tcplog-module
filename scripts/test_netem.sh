@@ -3,11 +3,16 @@ set -euo pipefail
 
 # scripts/test_netem.sh
 # Created by GitHub CoPilot AI to simulate packet loss
-# Usage: sudo ./scripts/test_netem.sh [LOSS_PERCENT] [DURATION_SECONDS]
-# Example: sudo ./scripts/test_netem.sh 10 30
+# Usage: sudo ./scripts/test_netem.sh [LOSS_PERCENT] [DURATION_SECONDS] [MODE]
+# MODE: loss (default) | reorder | dupacks
+# Examples:
+#  sudo ./scripts/test_netem.sh 10 30           # apply 10% loss on server egress
+#  sudo ./scripts/test_netem.sh 0 30 reorder    # apply reordering to induce misordering/dup-ACKs
+#  sudo ./scripts/test_netem.sh 1 30 dupacks    # small loss+reorder to provoke duplicate ACKs
 
 LOSS=${1:-10}
 DURATION=${2:-30}
+MODE=${3:-loss}
 PORT=5201
 NS1=ns1
 NS2=ns2
@@ -26,6 +31,7 @@ cleanup() {
   set +e
   # remove tc qdisc
   ip netns exec ${NS2} tc qdisc del dev ${VETH2} root 2>/dev/null || true
+  ip netns exec ${NS1} tc qdisc del dev ${VETH1} root 2>/dev/null || true
   # kill background processes started by the script
   if [ -n "${SERVER_PID:-}" ]; then kill ${SERVER_PID} 2>/dev/null || true; fi
   if [ -n "${CLIENT_PID:-}" ]; then kill ${CLIENT_PID} 2>/dev/null || true; fi
@@ -59,8 +65,24 @@ ip netns exec ${NS2} ip link set ${VETH2} up
 echo "Checking connectivity (should be reachable)..."
 ip netns exec ${NS1} ping -c 2 ${IP2%/*}
 
-echo "Applying netem loss=${LOSS}% on ${VETH2} inside ${NS2}..."
-ip netns exec ${NS2} tc qdisc add dev ${VETH2} root netem loss ${LOSS}%
+case "${MODE}" in
+  loss)
+    echo "Applying netem loss=${LOSS}% on ${VETH2} inside ${NS2}..."
+    ip netns exec ${NS2} tc qdisc add dev ${VETH2} root netem loss ${LOSS}%
+    ;;
+  reorder)
+    echo "Applying netem reorder on ${VETH1} inside ${NS1} (delay 10ms, reorder 25% 50%) to induce misordering..."
+    ip netns exec ${NS1} tc qdisc add dev ${VETH1} root netem delay 10ms reorder 25% 50%
+    ;;
+  dupacks)
+    echo "Applying netem on ${VETH1} inside ${NS1}: delay 10ms reorder 25% 50% loss ${LOSS}% (to provoke duplicate ACKs)..."
+    ip netns exec ${NS1} tc qdisc add dev ${VETH1} root netem delay 10ms reorder 25% 50% loss ${LOSS}%
+    ;;
+  *)
+    echo "Unknown MODE='${MODE}'. Use 'loss', 'reorder' or 'dupacks'." >&2
+    exit 2
+    ;;
+esac
 
 # Start server: use iperf3 if available, else use Python
 if command -v iperf3 >/dev/null 2>&1; then

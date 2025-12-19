@@ -14,6 +14,8 @@ arg_parser = argparse.ArgumentParser(
 arg_parser.add_argument("-p", "--port", type=int, help="Filter events to those whose source port OR destination port is set to this value.")
 arg_parser.add_argument("-s", "--source-port", type=int, help="Filter events to those whose source port is set to this value.")
 arg_parser.add_argument("-d", "--destination-port", type=int, help="Filter events to those whose destination port is set to this value.")
+arg_parser.add_argument("-e", "--event-type", type=str, help="Filter events to those with event name specified.")
+arg_parser.add_argument("-o", "--output", type=str, help="File to write output to.")
 
 args = arg_parser.parse_args()
 
@@ -58,12 +60,22 @@ while True:
         elif (args.destination_port is not None and
             int(json_in["data"]["destination_port"]) != args.destination_port):
             pass
+        elif (args.event_type is not None and 
+            json_in["name"] != args.event_type and 
+            json_in["name"] != f"tcplog:{args.event_type}"):
+            pass
         else:
             events.append(json_in)
     except KeyboardInterrupt:
         break
 
-print(events)
+output = json.dumps(events, indent=4)
+
+if (args.output is not None):
+    with open(args.output, "w") as f:
+        f.write(output)
+else:
+    print(output)
 
 os.close(device)
         

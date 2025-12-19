@@ -21,6 +21,7 @@ static char *log_ca_events[] = {
 
 // Comments from linux/tools/include/uapi/linux/tcp.h
 static char* log_ca_states[] = {
+    "None",
     "TCP_CA_Open",      /* Nothing bad has been observed recently. No apparent reordering, packet loss, or ECN marks. */
     "TCP_CA_Disorder",  /* The sender enters disordered state when it has received DUPACKs or SACKs in the last round of packets sent. This could be due to packet loss or reordering but needs further information to confirm packets have been lost. */
     "TCP_CA_CWR",       /* The sender enters Congestion Window Reduction (CWR) state when it has received ACKs with ECN-ECE marks, or has experienced congestion or packet discard on the sender host (e.g. qdisc). */
@@ -32,8 +33,8 @@ static char event_template[] = "{\n"
     "\t\"time\": $TIME,\n"
     "\t\"name\": \"$NAME\",\n"
     "\t\"data\": {\n"
-    "\t\t\"source_port\": \"$SPRT\",\n"
-    "\t\t\"destination_port\": \"$DPRT\",\n"
+    "\t\t\"source_port\": $SPRT,\n"
+    "\t\t\"destination_port\": $DPRT,\n"
     "\t\t\"state\": \"$STAT\",\n"
     "\t\t\"state_variables\": {\n"
     "\t\t\t\"cwnd\": $CWND,\n"
@@ -69,6 +70,7 @@ static int tcplog_entry_len[LOG_BUF_ENTRY_COUNT_MAX];
 static bool tcplog_buf_read_ready = false;
 static u64 tcplog_last_read_time = 0;
 static int tcplog_dev_semaphore = 0;
+static int previous_state = 0;
 static struct file_operations tcplog_device_ops = {
   .read = tcplog_device_read,
   .write = tcplog_device_write,
@@ -194,10 +196,35 @@ void tcplog_log_event(char* event_name, struct sock *sk, struct tcplog_extra_dat
                             char ca_event_end[] = "\"";
                             for (int i=0; ca_event_end[i] != '\0'; i++) local_buffer[buf_i++] = ca_event_end[i];
                         }
+                    } else if (strcmp(event_name, tcplog_event_names[STATE_UPDATED]) == 0 && extra != NULL) {
+                        if (extra->new_state != 0) {
+                            local_buffer[buf_i++] = ',';
+                            char from_start[] = "\"from\": \"";
+                            for (int i=0; from_start[i] != '\0'; i++) local_buffer[buf_i++] = from_start[i];
+                            char *from_state_name = log_ca_states[previous_state];
+                            for (int i=0; from_state_name[i] != '\0'; i++) local_buffer[buf_i++] = from_state_name[i];
+                            char to_start[] = "\", \"to\": \"";
+                            for (int i=0; to_start[i] != '\0'; i++) local_buffer[buf_i++] = to_start[i];
+                            char *to_state_name = log_ca_states[extra->new_state];
+                            previous_state = extra->new_state;
+                            for (int i=0; to_state_name[i] != '\0'; i++) local_buffer[buf_i++] = to_state_name[i];
+                            char to_end[] = "\"";
+                            for (int i=0; to_end[i] != '\0'; i++) local_buffer[buf_i++] = to_end[i];
+                        }
+                    } else if (strcmp(event_name, tcplog_event_names[PACKET_DROPPED]) == 0 && extra != NULL) {
+                        if (extra->drop_cause != 0) {
+                            local_buffer[buf_i++] = ',';
+                            char cause_start[] = "\"cause\": \"";
+                            for (int i=0; cause_start[i] != '\0'; i++) local_buffer[buf_i++] = cause_start[i];
+                            char *cause_name = tcplog_drop_cause_names[extra->drop_cause];
+                            for (int i=0; cause_name[i] != '\0'; i++) local_buffer[buf_i++] = cause_name[i];
+                            char cause_end[] = "\"";
+                            for (int i=0; cause_end[i] != '\0'; i++) local_buffer[buf_i++] = cause_end[i];
+                        }
                     }
                 } else if (strcmp(token_buffer, "$STAT") == 0) {
                     bool in_slow_start = tcp_in_slow_start(tcp_sk(sk));
-                    char state[] = "CONGESTION_AVOIDANCE???";
+                    char state[] = "CONGESTION_AVOIDANCE";
                     if (in_slow_start)
                         strcpy(state, "SLOW_START");
                     for (int i=0; state[i] != '\0'; i++) local_buffer[buf_i++] = state[i];
@@ -378,9 +405,13 @@ u32 log_undo_cwnd(struct sock *sk) {
 }
 
 void log_set_state(struct sock *sk, u8 new_state) {
-    // char buffer[512];
-    // sprintf(buffer, "TCPLog: set_state - state=%s - cwnd=%d\n", log_ca_states[new_state], log_get_cwnd(sk));
-    // tcplog_log(buffer);
+    struct tcplog_extra_data data;
+    data.new_state = new_state + 1;
+    tcplog_log_event(tcplog_event_names[STATE_UPDATED], sk, &data);
+    if (data.new_state == TCP_CA_Disorder + 1) { // Triple duplicate ack occurred
+        data.drop_cause = TRIPLE_DUPLICATE_ACKS;
+        tcplog_log_event(tcplog_event_names[PACKET_DROPPED], sk, &data);
+    }
     return;
 }
 
@@ -392,6 +423,7 @@ void log_cwnd_event(struct sock *sk, enum tcp_ca_event ev) {
         event_name = tcplog_event_names[CONNECTION_STARTED];
     } else if (ev == CA_EVENT_LOSS) {
         event_name = tcplog_event_names[PACKET_DROPPED];
+        data.drop_cause = RETRANSMISSION_TIMEOUT;
     }
     tcplog_log_event(event_name, sk, &data);
     return;
