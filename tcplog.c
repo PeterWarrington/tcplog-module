@@ -383,13 +383,7 @@ static u32 log_get_initial_wnd(struct sock *sk) {
 }
 
 static u32 log_get_ssthresh(struct sock *sk) {
-    u32 ssthresh = tcp_current_ssthresh(sk);
-
-    u32 mss = log_get_mss(sk); 
-
-    if (!mss)
-        return 0;
-    return ssthresh / mss;
+    return tcp_current_ssthresh(sk);;
 }
 
 u32 log_ssthresh(struct sock *sk) {

@@ -18,14 +18,25 @@ args = arg_parser.parse_args()
 f = open(args.input)
 data = json.loads(f.read())
 
-points = np.array([(time(e), e["data"]["state_variables"]["cwnd"]) for e in data])
-plt.plot(points[:,0], points[:,1], marker = 'o')
+fig, ax1 = plt.subplots()
+
+cwnd_points = np.array([(time(e), e["data"]["state_variables"]["cwnd"]) for e in data])
+ax1.plot(cwnd_points[:,0], cwnd_points[:,1], marker = 'o')
+
+ax1.set_xlabel("Time")
+ax1.set_ylabel("cwnd")
+
+ax2 = ax1.twinx()
+
+ssthr_points = np.array([(time(e), e["data"]["state_variables"]["ssthresh"]) for e in data])
+ax2.plot(ssthr_points[:,0], ssthr_points[:,1], marker = 'o', color="#0F0")
+
+ax2.set_ylabel("ssthresh")
+
+ax2.set_ylim(0,250)
 
 for e in data:
     if e["name"] == "tcplog:packet_dropped":
         plt.axvline(time(e), color="#F00")
-
-plt.xlabel("Time")
-plt.ylabel("cwnd")
 
 plt.show()
