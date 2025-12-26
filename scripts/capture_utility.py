@@ -14,6 +14,8 @@ arg_parser = argparse.ArgumentParser(
 arg_parser.add_argument("-p", "--port", type=int, help="Filter events to those whose source port OR destination port is set to this value.")
 arg_parser.add_argument("-s", "--source-port", type=int, help="Filter events to those whose source port is set to this value.")
 arg_parser.add_argument("-d", "--destination-port", type=int, help="Filter events to those whose destination port is set to this value.")
+arg_parser.add_argument("-S", "--source-ip", type=str, help="Filter events to those whose source IP address is set to this value.")
+arg_parser.add_argument("-D", "--destination-ip", type=str, help="Filter events to those whose destination IP address is set to this value.")
 arg_parser.add_argument("-e", "--event-type", type=str, help="Filter events to those with event name specified.")
 arg_parser.add_argument("-o", "--output", type=str, help="File to write output to.")
 
@@ -59,6 +61,12 @@ while True:
             pass
         elif (args.destination_port is not None and
             int(json_in["data"]["destination_port"]) != args.destination_port):
+            pass
+        elif (args.source_ip is not None and
+            json_in["data"]["source_ip"] != args.source_ip):
+            pass
+        elif (args.destination_ip is not None and
+            json_in["data"]["destination_ip"] != args.destination_ip):
             pass
         elif (args.event_type is not None and 
             json_in["name"] != args.event_type and 
