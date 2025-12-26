@@ -1,4 +1,5 @@
 import matplotlib.pyplot as plt
+import matplotlib.ticker as plticker
 import numpy as np
 import json
 import argparse
@@ -45,6 +46,9 @@ ax1.yaxis.label.set_color("#00F")
 ax1.set_xlim(0, ax1.get_xlim()[1])
 ax1.set_ylim(0, ax1.get_ylim()[1])
 
+ax1.xaxis.set_minor_locator(plticker.AutoMinorLocator(8))
+ax1.xaxis.set_major_locator(plticker.MaxNLocator(20))
+
 ax2 = ax1.twinx()
 
 ssthr_points = np.array([(time(e), e["data"]["state_variables"]["ssthresh"]) for e in data])
@@ -53,6 +57,10 @@ ax2.plot(ssthr_points[:,0], ssthr_points[:,1], marker = 'o', color="#0F0")
 ax2.set_ylabel("ssthresh")
 ax2.set_ylim(ax1.get_ylim())
 ax2.yaxis.label.set_color("#0F0")
+
+for ax in (ax1, ax2):
+    ax.yaxis.set_minor_locator(plticker.AutoMinorLocator(8))
+    ax.yaxis.set_major_locator(plticker.MaxNLocator(20))
 
 for e in data:
     if e["name"] == "tcplog:packet_dropped":
