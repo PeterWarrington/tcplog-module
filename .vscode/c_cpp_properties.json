@@ -15,14 +15,30 @@
                 "/usr/src/linux-headers-6.8.0-51/include",
                 "/usr/src/linux-headers-6.8.0-51-generic/include",
                 "/usr/lib/gcc/aarch64-linux-gnu/13/include/",
+                "/usr/lib/gcc/aarch64-redhat-linux/15/include/",
                 "/lib/modules/6.8.0-51-generic/build/include",
                 "/lib/modules/6.8.0-51-generic/build/include/generated",
                 "/lib/modules/6.8.0-51-generic/build/include/uapi",
                 "/lib/modules/6.8.0-51-generic/build/arch/arm64/include",
-                "/lib/modules/6.8.0-51-generic/build/arch/arm64/include/generated"
-                ,
+                "/lib/modules/6.8.0-51-generic/build/arch/arm64/include/generated",
                 "/usr/src/linux-headers-6.8.0-51/arch/arm64/include",
-                "/usr/src/linux-headers-6.8.0-51/include/asm-generic"
+                "/usr/src/linux-headers-6.8.0-51/include/asm-generic",
+                "/lib/modules/6.17.12-400.asahi.fc42.aarch64+16k/build/include/",
+                "/lib/modules/6.17.12-400.asahi.fc42.aarch64+16k/build/include/asm-generic",
+                "/lib/modules/6.17.12-400.asahi.fc42.aarch64+16k/build/include/generated",
+                "/lib/modules/6.17.12-400.asahi.fc42.aarch64+16k/build/include/uapi",
+                "/lib/modules/6.17.12-400.asahi.fc42.aarch64+16k/build/include/linux",
+                "/usr/src/kernels/6.17.12-400.asahi.fc42.aarch64+16k/include/",
+                "/usr/src/kernels/6.17.12-400.asahi.fc42.aarch64+16k/include/asm-generic",
+                "/usr/src/kernels/6.16.8-400.asahi.fc42.aarch64+16k/include/",
+                "/usr/src/kernels/6.16.8-400.asahi.fc42.aarch64+16k/include/asm-generic",
+                "/usr/src/kernels/6.17.12-400.asahi.fc42.aarch64+16k/arch/arm64/include/asm/",
+                "/usr/src/kernels/6.17.12-400.asahi.fc42.aarch64+16k/arch/arm64/include/",
+                "/usr/src/kernels/6.17.12-400.asahi.fc42.aarch64+16k/arch/arm64/include/asm/",
+                "/usr/src/kernels/6.17.12-400.asahi.fc42.aarch64+16k/arch/arm64/include/",
+                "/usr/src/kernels/6.17.12-400.asahi.fc42.aarch64+16k/include/uapi/asm-generic/",
+                "/usr/src/kernels/6.17.12-400.asahi.fc42.aarch64+16k/include/uapi/",
+                "/usr/src/kernels/6.17.12-400.asahi.fc42.aarch64+16k/arch/arm64/include/generated/"
             ],
             "browse": {
                 "path": [
@@ -37,7 +53,7 @@
                 "limitSymbolsToIncludedHeaders": true,
                 "databaseFilename": "${workspaceFolder}/.vscode/vc.db"
             },
-            "compilerPath": "/usr/bin/aarch64-linux-gnu-gcc",
+            "compilerPath": "/usr/bin/gcc",
             "configurationProvider": "ms-vscode.cpptools"
         }
     ],

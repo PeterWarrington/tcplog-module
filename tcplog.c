@@ -33,6 +33,8 @@ static char event_template[] = "{\n"
     "\t\"time\": $TIME,\n"
     "\t\"name\": \"$NAME\",\n"
     "\t\"data\": {\n"
+    "\t\t\"source_ip\": $SADR,\n"
+    "\t\t\"destination_ip\": $DADR,\n"
     "\t\t\"source_port\": $SPRT,\n"
     "\t\t\"destination_port\": $DPRT,\n"
     "\t\t\"state\": \"$STAT\",\n"
@@ -238,6 +240,14 @@ void tcplog_log_event(char* event_name, struct sock *sk, struct tcplog_extra_dat
                     char var_buf[16] = "\0";
                     sprintf(var_buf, "%d", dport);
                     for (int i=0; var_buf[i] != '\0'; i++) local_buffer[buf_i++] = var_buf[i];
+                } else if (strcmp(token_buffer, "$SADR") == 0) {
+                    char *s_addr = log_ip_to_str(sk->__sk_common.skc_rcv_saddr);
+                    for (int i=0; s_addr[i] != '\0'; i++) local_buffer[buf_i++] = s_addr[i];
+                    kfree(s_addr);
+                } else if (strcmp(token_buffer, "$DADR") == 0) {
+                    char *d_addr = log_ip_to_str(sk->__sk_common.skc_daddr);
+                    for (int i=0; d_addr[i] != '\0'; i++) local_buffer[buf_i++] = d_addr[i];
+                    kfree(d_addr);
                 }
             }
             token_buffer[0] = '\0';
@@ -384,6 +394,16 @@ static u32 log_get_initial_wnd(struct sock *sk) {
 
 static u32 log_get_ssthresh(struct sock *sk) {
     return tcp_sk(sk)->snd_ssthresh;
+}
+
+static char* log_ip_to_str(__be32 skc_addr) {
+    char *addr_str = kmalloc(21, GFP_ATOMIC);
+    u32 u32_addr = ntohs(skc_addr);
+    sprintf(addr_str, "%d.%d.%d.%d", u32_addr & 0xFF000000,
+                                     u32_addr & 0x00FF0000,
+                                     u32_addr & 0x0000FF00,
+                                     u32_addr & 0x000000FF);
+    return addr_str;
 }
 
 u32 log_ssthresh(struct sock *sk) {
