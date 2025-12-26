@@ -397,12 +397,12 @@ static u32 log_get_ssthresh(struct sock *sk) {
 }
 
 static char* log_ip_to_str(__be32 skc_addr) {
-    char *addr_str = kmalloc(21, GFP_ATOMIC);
-    u32 u32_addr = ntohs(skc_addr);
-    sprintf(addr_str, "%d.%d.%d.%d", u32_addr & 0xFF000000,
-                                     u32_addr & 0x00FF0000,
-                                     u32_addr & 0x0000FF00,
-                                     u32_addr & 0x000000FF);
+    char *addr_str = kmalloc(23, GFP_ATOMIC);
+    u32 u32_addr = ntohl(skc_addr);
+    sprintf(addr_str, "\"%d.%d.%d.%d\"", (u32_addr >> 24) & 0xFF,
+                                     (u32_addr >> 16) & 0xFF,
+                                     (u32_addr >> 8) & 0xFF,
+                                     u32_addr & 0xFF);
     return addr_str;
 }
 

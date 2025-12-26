@@ -1,0 +1,82 @@
+[
+    {
+        "time": 1766737547780,
+        "name": "tcplog:packets_acked",
+        "data": {
+            "source_ip": "10.0.2.15",
+            "destination_ip": "20.42.72.131",
+            "source_port": 53406,
+            "destination_port": 443,
+            "state": "SLOW_START",
+            "state_variables": {
+                "cwnd": 10,
+                "iw": 0,
+                "rwnd": 51,
+                "ssthresh": 2147483647,
+                "prior_cwnd": 0,
+                "prr_delivered": 0,
+                "prr_out": 0
+            }
+        }
+    },
+    {
+        "time": 1766737549003,
+        "name": "tcplog:packets_acked",
+        "data": {
+            "source_ip": "10.0.2.15",
+            "destination_ip": "20.26.156.210",
+            "source_port": 52868,
+            "destination_port": 443,
+            "state": "SLOW_START",
+            "state_variables": {
+                "cwnd": 10,
+                "iw": 0,
+                "rwnd": 53,
+                "ssthresh": 2147483647,
+                "prior_cwnd": 0,
+                "prr_delivered": 0,
+                "prr_out": 0
+            }
+        }
+    },
+    {
+        "time": 1766737549609,
+        "name": "tcplog:packets_acked",
+        "data": {
+            "source_ip": "10.0.2.15",
+            "destination_ip": "140.82.112.21",
+            "source_port": 15555,
+            "destination_port": 443,
+            "state": "SLOW_START",
+            "state_variables": {
+                "cwnd": 10,
+                "iw": 0,
+                "rwnd": 56,
+                "ssthresh": 2147483647,
+                "prior_cwnd": 0,
+                "prr_delivered": 0,
+                "prr_out": 0
+            }
+        }
+    },
+    {
+        "time": 1766737550118,
+        "name": "tcplog:packets_acked",
+        "data": {
+            "source_ip": "10.0.2.15",
+            "destination_ip": "20.42.72.131",
+            "source_port": 33438,
+            "destination_port": 443,
+            "state": "SLOW_START",
+            "state_variables": {
+                "cwnd": 10,
+                "iw": 0,
+                "rwnd": 53,
+                "ssthresh": 2147483647,
+                "prior_cwnd": 0,
+                "prr_delivered": 0,
+                "prr_out": 0
+            }
+        }
+    }
+]

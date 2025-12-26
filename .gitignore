@@ -11,3 +11,4 @@
 .vscode/vc.db
 .vscode/vc.db-shm
 .vscode/
+.vscode/vc.db-wal
