@@ -37,7 +37,7 @@ static char event_template[] = "{\n"
     "\t\t\"destination_ip\": $DADR,\n"
     "\t\t\"source_port\": $SPRT,\n"
     "\t\t\"destination_port\": $DPRT,\n"
-    "\t\t\"state\": \"$STAT\",\n"
+    "\t\t\"in_slow_start\": $STAT,\n"
     "\t\t\"state_variables\": {\n"
     "\t\t\t\"cwnd\": $CWND,\n"
     "\t\t\t\"iw\": $IWND,\n"
@@ -226,9 +226,9 @@ void tcplog_log_event(char* event_name, struct sock *sk, struct tcplog_extra_dat
                     }
                 } else if (strcmp(token_buffer, "$STAT") == 0) {
                     bool in_slow_start = tcp_in_slow_start(tcp_sk(sk));
-                    char state[] = "CONGESTION_AVOIDANCE";
+                    char state[] = "false";
                     if (in_slow_start)
-                        strcpy(state, "SLOW_START");
+                        strcpy(state, "true");
                     for (int i=0; state[i] != '\0'; i++) local_buffer[buf_i++] = state[i];
                 } else if (strcmp(token_buffer, "$SPRT") == 0) {
                     u16 sport = ntohs(sk->__sk_common.skc_num);
