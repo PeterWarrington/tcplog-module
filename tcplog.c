@@ -8,6 +8,18 @@
 #include <linux/spinlock.h>
 
 #include "tcplog.h"
+#include "cubic/tcp_cubic.c"
+
+#define OPS_CUBIC 1
+#define OPS_RENO 2
+
+#define CONGESTION_OPS OPS_CUBIC
+
+#if CONGESTION_OPS==OPS_CUBIC
+    static struct tcp_congestion_ops *base_ca_ops = &cubictcp;
+#elif CONGESTION_OPS==OPS_RENO
+    static struct tcp_congestion_ops *base_ca_ops = &tcp_reno;
+#endif
 
 // Comments from net/tcp.h
 static char *log_ca_events[] = {
@@ -429,15 +441,15 @@ static char* log_ip_to_str(__be32 skc_addr) {
 }
 
 u32 log_ssthresh(struct sock *sk) {
-    return tcp_reno_ssthresh(sk);
+    return base_ca_ops->ssthresh(sk);
 }
 
 void log_cong_avoid(struct sock *sk, u32 ack, u32 acked) {
-    return tcp_reno_cong_avoid(sk, ack, acked);
+    return base_ca_ops->cong_avoid(sk, ack, acked);
 }
 
 u32 log_undo_cwnd(struct sock *sk) {
-    return tcp_reno_undo_cwnd(sk);
+    return base_ca_ops->undo_cwnd(sk);
 }
 
 void log_set_state(struct sock *sk, u8 new_state) {
@@ -448,6 +460,7 @@ void log_set_state(struct sock *sk, u8 new_state) {
         data.drop_cause = TRIPLE_DUPLICATE_ACKS;
         tcplog_log_event(tcplog_event_names[PACKET_DROPPED], sk, &data);
     }
+    base_ca_ops->set_state(sk, new_state);
     return;
 }
 
@@ -462,6 +475,7 @@ void log_cwnd_event(struct sock *sk, enum tcp_ca_event ev) {
         data.drop_cause = RETRANSMISSION_TIMEOUT;
     }
     tcplog_log_event(event_name, sk, &data);
+    base_ca_ops->cwnd_event(sk, ev);
     return;
 }
 
