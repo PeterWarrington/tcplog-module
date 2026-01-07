@@ -279,8 +279,6 @@ static int tcplog_device_release(struct inode *inode, struct file *file)
 static ssize_t tcplog_device_read(struct file *file, char __user *user_buffer, size_t requested_bytes, loff_t *file_offset)
 {
     spin_lock_bh(&tcplog_lock);
-
-    // Wait until buffer is ready for reading
     if (!tcplog_buf_read_ready) {
         spin_unlock_bh(&tcplog_lock);
         if (DMESG_VERBOSE)
@@ -293,44 +291,68 @@ static ssize_t tcplog_device_read(struct file *file, char __user *user_buffer, s
             printk("DEV_TCPLOG: NOT WAITING");
     }
 
-    size_t copied = 0;  
+    int indices[LOG_BUF_ENTRY_COUNT_MAX];
+    size_t lengths[LOG_BUF_ENTRY_COUNT_MAX];
     int entries_consumed = 0;
-    int entries_available = tcplog_entry_count;
+    size_t total_bytes = 0;
 
+    int entries_available = tcplog_entry_count;
     int i = tcplog_read_index;
     int to_process = entries_available;
-    for (int n = 0; n < to_process && requested_bytes > 0; n++) {
+    for (int n = 0; n < to_process && total_bytes < requested_bytes; n++) {
         int this_len = tcplog_entry_len[i];
-        size_t will_copy = min_t(size_t, (size_t)this_len, requested_bytes);
+        size_t will_copy = min_t(size_t, (size_t)this_len, requested_bytes - total_bytes);
         if (will_copy) {
-            if (copy_to_user(((char __user *)user_buffer) + copied, tcplog_buffer[i], will_copy)) {
-                spin_unlock_bh(&tcplog_lock);
-                return -EFAULT;
-            }
-            copied += will_copy;
-            requested_bytes -= will_copy;
+            indices[entries_consumed] = i;
+            lengths[entries_consumed] = will_copy;
+            total_bytes += will_copy;
+            entries_consumed++;
         }
         i = (i + 1) % LOG_BUF_ENTRY_COUNT_MAX;
-        entries_consumed++;
-        entries_available--;
         if (i == tcplog_write_index)
             break;
     }
 
-    if (entries_consumed > 0) {
-        tcplog_read_index = (tcplog_read_index + entries_consumed) % LOG_BUF_ENTRY_COUNT_MAX;
-        tcplog_entry_count = max(0, tcplog_entry_count - entries_consumed);
-        tcplog_last_read_time = ktime_get_ns();
+    if (entries_consumed == 0) {
+        tcplog_buf_read_ready = false;
+        spin_unlock_bh(&tcplog_lock);
+        return 0;
     }
-    size_t to_copy = copied;
+
+    // Put buffer into kernel buffer while in lock, write to user outside of lock
+    char *kbuf = kmalloc(total_bytes, GFP_ATOMIC);
+    if (!kbuf) {
+        if (DMESG_VERBOSE)
+            printk("DEV_TCPLOG: KMALLOC FAILED");
+        tcplog_buf_read_ready = false;
+        spin_unlock_bh(&tcplog_lock);
+        return -ENOMEM;
+    }
+
+    size_t copied = 0;
+    for (int j = 0; j < entries_consumed; j++) {
+        int idx = indices[j];
+        size_t len = lengths[j];
+        memcpy(kbuf + copied, tcplog_buffer[idx], len);
+        copied += len;
+    }
+
+    tcplog_read_index = (tcplog_read_index + entries_consumed) % LOG_BUF_ENTRY_COUNT_MAX;
+    tcplog_entry_count = max(0, tcplog_entry_count - entries_consumed);
+    tcplog_last_read_time = ktime_get_ns();
 
     if (DMESG_VERBOSE)
         printk("DEV_TCPLOG: WRITTEN");
 
     tcplog_buf_read_ready = false;
-
     spin_unlock_bh(&tcplog_lock);
-    return (ssize_t)to_copy;
+
+    if (copy_to_user(user_buffer, kbuf, copied)) {
+        kfree(kbuf);
+        return -EFAULT;
+    }
+    kfree(kbuf);
+    return (ssize_t)copied;
 }
 
 static ssize_t tcplog_device_write(struct file *filp,
