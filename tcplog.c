@@ -7,19 +7,25 @@
 #include <linux/ktime.h>
 #include <linux/spinlock.h>
 
+#include <linux/kprobes.h>
+
 #include "tcplog.h"
-#include "cubic/tcp_cubic.c"
 
-#define OPS_CUBIC 1
-#define OPS_RENO 2
+#define _CA_RENO 1
+#define _CA_CUBIC 2
 
-#define CONGESTION_OPS OPS_CUBIC
+#define BASE_CA _CA_CUBIC
 
-#if CONGESTION_OPS==OPS_CUBIC
-    static struct tcp_congestion_ops *base_ca_ops = &cubictcp;
-#elif CONGESTION_OPS==OPS_RENO
-    static struct tcp_congestion_ops *base_ca_ops = &tcp_reno;
-#endif
+struct tcp_congestion_ops tcp_reno = {
+	.flags		= TCP_CONG_NON_RESTRICTED,
+	.name		= "reno",
+	.owner		= THIS_MODULE,
+	.ssthresh	= tcp_reno_ssthresh,
+	.cong_avoid	= tcp_reno_cong_avoid,
+	.undo_cwnd	= tcp_reno_undo_cwnd,
+};
+
+static struct tcp_congestion_ops *base_ca_ops = &tcp_reno;
 
 // Comments from net/tcp.h
 static char *log_ca_events[] = {
@@ -90,6 +96,11 @@ static struct file_operations tcplog_device_ops = {
   .write = tcplog_device_write,
   .open = tcplog_device_open,
   .release = tcplog_device_release
+};
+
+// To lookup tcp_congestion_ops not exported by kernel 
+static struct kprobe kp = {
+    .symbol_name = "kallsyms_lookup_name",
 };
 
 void tcplog_log(const char *msg)
@@ -381,6 +392,29 @@ int log_register(void)
     pr_info("TCPlog register\n");
 
     spin_lock_init(&tcplog_lock);
+
+#if BASE_CA != _CA_RENO
+
+    int ret = register_kprobe(&kp);
+    if (ret < 0) {
+        pr_warn("tcplog: register_kprobe failed: %d\n", ret);
+    } else if (!kp.addr) {
+        pr_warn("tcplog: kprobe registered but kp.addr is NULL\n");
+        unregister_kprobe(&kp);
+    } else {
+        typedef unsigned long (*kallsyms_lookup_name_t)(const char *name);
+        kallsyms_lookup_name_t kln = (kallsyms_lookup_name_t)kp.addr;
+        unsigned long addr = kln("cubictcp");
+        if (addr) {
+            base_ca_ops = (struct tcp_congestion_ops *)addr;
+            pr_info("tcplog: found cubictcp at %px, using it\n", (void *)addr);
+        } else {
+            pr_warn("tcplog: kallsyms_lookup_name('cubictcp') failed, keeping fallback\n");
+        }
+        unregister_kprobe(&kp);
+    }
+
+#endif
 
     register_chrdev(0, DEVICE_NAME, &tcplog_device_ops);
 
