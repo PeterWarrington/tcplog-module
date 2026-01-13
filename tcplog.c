@@ -63,7 +63,8 @@ static char event_template[] = "{\n"
     "\t\t\t\"ssthresh\": $STHR,\n"
     "\t\t\t\"prior_cwnd\": $PWND,\n"
     "\t\t\t\"prr_delivered\": $PDLV,\n"
-    "\t\t\t\"prr_out\": $POUT\n"
+    "\t\t\t\"prr_out\": $POUT,\n"
+    "\t\t\t\"rtt\": $SRTT\n"
     "\t\t}\n"
     "\t$DATA\n"
     "\t}\n"
@@ -271,6 +272,11 @@ void tcplog_log_event(char* event_name, struct sock *sk, struct tcplog_extra_dat
                     char *d_addr = log_ip_to_str(sk->__sk_common.skc_daddr);
                     for (int i=0; d_addr[i] != '\0'; i++) local_buffer[buf_i++] = d_addr[i];
                     kfree(d_addr);
+                } else if (strcmp(token_buffer, "$SRTT") == 0) { 
+                    u32 rtt = log_get_rtt(sk);
+                    char var_buf[16] = "\0";
+                    sprintf(var_buf, "%d", rtt);
+                    for (int i=0; var_buf[i] != '\0'; i++) local_buffer[buf_i++] = var_buf[i];
                 }
             }
             token_buffer[0] = '\0';
@@ -462,6 +468,10 @@ static u32 log_get_initial_wnd(struct sock *sk) {
 
 static u32 log_get_ssthresh(struct sock *sk) {
     return tcp_sk(sk)->snd_ssthresh;
+}
+
+static u32 log_get_rtt(struct sock *sk) {
+    return tcp_sk(sk)->srtt_us;
 }
 
 static char* log_ip_to_str(__be32 skc_addr) {

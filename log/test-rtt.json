@@ -1,0 +1,65 @@
+[
+    {
+        "time": 1768316111508,
+        "name": "tcplog:packets_acked",
+        "data": {
+            "source_ip": "10.0.2.15",
+            "destination_ip": "130.209.34.134",
+            "source_port": 21126,
+            "destination_port": 80,
+            "in_slow_start": true,
+            "state_variables": {
+                "cwnd": 10,
+                "iw": 0,
+                "rwnd": 44,
+                "ssthresh": 2147483647,
+                "prior_cwnd": 0,
+                "prr_delivered": 0,
+                "prr_out": 0,
+                "rtt": 0
+            }
+        }
+    },
+    {
+        "time": 1768316111508,
+        "name": "tcplog:packets_acked",
+        "data": {
+            "source_ip": "10.0.2.15",
+            "destination_ip": "130.209.34.134",
+            "source_port": 21126,
+            "destination_port": 80,
+            "in_slow_start": true,
+            "state_variables": {
+                "cwnd": 10,
+                "iw": 0,
+                "rwnd": 44,
+                "ssthresh": 2147483647,
+                "prior_cwnd": 0,
+                "prr_delivered": 0,
+                "prr_out": 0,
+                "rtt": 39800
+            }
+        }
+    },
+    {
+        "time": 1768316111514,
+        "name": "tcplog:packets_acked",
+        "data": {
+            "source_ip": "10.0.2.15",
+            "destination_ip": "130.209.34.134",
+            "source_port": 21126,
+            "destination_port": 80,
+            "in_slow_start": true,
+            "state_variables": {
+                "cwnd": 10,
+                "iw": 0,
+                "rwnd": 43,
+                "ssthresh": 2147483647,
+                "prior_cwnd": 0,
+                "prr_delivered": 0,
+                "prr_out": 0,
+                "rtt": 34989
+            }
+        }
+    }
+]

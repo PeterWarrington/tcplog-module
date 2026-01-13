@@ -71,6 +71,8 @@ static u32 log_get_initial_wnd(struct sock *sk);
 
 static u32 log_get_ssthresh(struct sock *sk);
 
+static u32 log_get_rtt(struct sock *sk);
+
 u32 log_ssthresh(struct sock *sk);
 
 static char* log_ip_to_str(__be32 skc_addr);
