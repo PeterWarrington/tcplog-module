@@ -18,6 +18,7 @@ arg_parser = argparse.ArgumentParser(
 
 arg_parser.add_argument("input", type=str)
 arg_parser.add_argument("-t", "--timestamp-display", help="Display time as timestamp rather than ms since start.", action='store_true')
+arg_parser.add_argument("--rtt", help="Display rtt rather than ssthresh", action='store_true')
 args = arg_parser.parse_args()
 
 f = open(args.input)
@@ -51,11 +52,16 @@ ax1.xaxis.set_major_locator(plticker.MaxNLocator(20))
 
 ax2 = ax1.twinx()
 
-ssthr_points = np.array([(time(e), e["data"]["state_variables"]["ssthresh"]) for e in data])
+if args.rtt:
+    ssthr_points = np.array([(time(e), e["data"]["state_variables"]["rtt"]) for e in data])
+    ax2.set_ylabel("rtt (microseconds)")
+else:
+    ssthr_points = np.array([(time(e), e["data"]["state_variables"]["ssthresh"]) for e in data])
+    ax2.set_ylabel("ssthresh")
+    ax2.set_ylim(ax1.get_ylim())
+
 ax2.plot(ssthr_points[:,0], ssthr_points[:,1], marker = 'o', color="#0F0")
 
-ax2.set_ylabel("ssthresh")
-ax2.set_ylim(ax1.get_ylim())
 ax2.yaxis.label.set_color("#0F0")
 
 for ax in (ax1, ax2):
