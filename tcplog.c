@@ -14,18 +14,9 @@
 #define _CA_RENO 1
 #define _CA_CUBIC 2
 
-#define BASE_CA _CA_CUBIC
+#define BASE_CA _CA_RENO
 
-struct tcp_congestion_ops tcp_reno = {
-	.flags		= TCP_CONG_NON_RESTRICTED,
-	.name		= "reno",
-	.owner		= THIS_MODULE,
-	.ssthresh	= tcp_reno_ssthresh,
-	.cong_avoid	= tcp_reno_cong_avoid,
-	.undo_cwnd	= tcp_reno_undo_cwnd,
-};
-
-static struct tcp_congestion_ops *base_ca_ops = &tcp_reno;
+static struct tcp_congestion_ops *base_ca_ops = NULL;
 
 // Comments from net/tcp.h
 static char *log_ca_events[] = {
@@ -399,8 +390,6 @@ int log_register(void)
 
     spin_lock_init(&tcplog_lock);
 
-#if BASE_CA != _CA_RENO
-
     int ret = register_kprobe(&kp);
     if (ret < 0) {
         pr_warn("tcplog: register_kprobe failed: %d\n", ret);
@@ -410,17 +399,49 @@ int log_register(void)
     } else {
         typedef unsigned long (*kallsyms_lookup_name_t)(const char *name);
         kallsyms_lookup_name_t kln = (kallsyms_lookup_name_t)kp.addr;
-        unsigned long addr = kln("cubictcp");
+        unsigned long addr = 0;
+        const char *found_name = NULL;
+
+#if BASE_CA == _CA_RENO
+        addr = kln("tcp_reno");
+        if (addr)
+            found_name = "tcp_reno";
+        else {
+            addr = kln("cubictcp");
+            if (addr)
+                found_name = "cubictcp";
+        }
+#elif BASE_CA == _CA_CUBIC
+        addr = kln("cubictcp");
+        if (addr)
+            found_name = "cubictcp";
+        else {
+            addr = kln("tcp_reno");
+            if (addr)
+                found_name = "tcp_reno";
+        }
+#else
+        addr = kln("cubictcp");
+        if (addr)
+            found_name = "cubictcp";
+        else {
+            addr = kln("tcp_reno");
+            if (addr)
+                found_name = "tcp_reno";
+        }
+#endif
+
         if (addr) {
             base_ca_ops = (struct tcp_congestion_ops *)addr;
-            pr_info("tcplog: found cubictcp at %px, using it\n", (void *)addr);
+            if (found_name)
+                pr_info("tcplog: using %s congestion ops at %px\n", found_name, (void *)addr);
+            else
+                pr_info("tcplog: found congestion ops at %px, using it\n", (void *)addr);
         } else {
-            pr_warn("tcplog: kallsyms_lookup_name('cubictcp') failed, keeping fallback\n");
+            pr_warn("tcplog: kallsyms_lookup_name failed for preferred CAs, keeping fallback\n");
         }
         unregister_kprobe(&kp);
     }
-
-#endif
 
     register_chrdev(0, DEVICE_NAME, &tcplog_device_ops);
 
@@ -485,15 +506,21 @@ static char* log_ip_to_str(__be32 skc_addr) {
 }
 
 u32 log_ssthresh(struct sock *sk) {
-    return base_ca_ops->ssthresh(sk);
+    if (base_ca_ops && base_ca_ops->ssthresh)
+        return base_ca_ops->ssthresh(sk);
+    return tcp_sk(sk)->snd_ssthresh;
 }
 
 void log_cong_avoid(struct sock *sk, u32 ack, u32 acked) {
-    return base_ca_ops->cong_avoid(sk, ack, acked);
+    if (base_ca_ops && base_ca_ops->cong_avoid)
+        base_ca_ops->cong_avoid(sk, ack, acked);
+    return;
 }
 
 u32 log_undo_cwnd(struct sock *sk) {
-    return base_ca_ops->undo_cwnd(sk);
+    if (base_ca_ops && base_ca_ops->undo_cwnd)
+        return base_ca_ops->undo_cwnd(sk);
+    return 0;
 }
 
 void log_set_state(struct sock *sk, u8 new_state) {
@@ -504,7 +531,8 @@ void log_set_state(struct sock *sk, u8 new_state) {
         data.drop_cause = TRIPLE_DUPLICATE_ACKS;
         tcplog_log_event(tcplog_event_names[PACKET_DROPPED], sk, &data);
     }
-    base_ca_ops->set_state(sk, new_state);
+    if (base_ca_ops && base_ca_ops->set_state)
+        base_ca_ops->set_state(sk, new_state);
     return;
 }
 
@@ -519,7 +547,8 @@ void log_cwnd_event(struct sock *sk, enum tcp_ca_event ev) {
         data.drop_cause = RETRANSMISSION_TIMEOUT;
     }
     tcplog_log_event(event_name, sk, &data);
-    base_ca_ops->cwnd_event(sk, ev);
+    if (base_ca_ops && base_ca_ops->cwnd_event)
+        base_ca_ops->cwnd_event(sk, ev);
     return;
 }
 
