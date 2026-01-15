@@ -238,7 +238,14 @@ void tcplog_log_event(char* event_name, struct sock *sk, struct tcplog_extra_dat
                             char cause_end[] = "\"";
                             for (int i=0; cause_end[i] != '\0'; i++) local_buffer[buf_i++] = cause_end[i];
                         }
-                    }
+                    } else if (strcmp(event_name, tcplog_event_names[PACKETS_ACKED]) == 0 && extra && extra->acked) {
+                        local_buffer[buf_i++] = ',';
+                        char acked_start[] = "\"acked\": ";
+                        for (int i=0; acked_start[i] != '\0'; i++) local_buffer[buf_i++] = acked_start[i];
+                        char var_buf[16] = "\0";
+                        sprintf(var_buf, "%d", extra->acked);
+                        for (int i=0; var_buf[i] != '\0'; i++) local_buffer[buf_i++] = var_buf[i];
+                    } 
                 } else if (strcmp(token_buffer, "$STAT") == 0) {
                     bool in_slow_start = tcp_in_slow_start(tcp_sk(sk));
                     char state[] = "false";
@@ -512,6 +519,9 @@ u32 log_ssthresh(struct sock *sk) {
 }
 
 void log_cong_avoid(struct sock *sk, u32 ack, u32 acked) {
+    struct tcplog_extra_data data;
+    data.acked = acked;
+    tcplog_log_event(tcplog_event_names[PACKETS_ACKED], sk, &data); // cong_avoid called when packets acked (https://github.com/torvalds/linux/blob/944aacb68baf7624ab8d277d0ebf07f025ca137c/net/ipv4/tcp_input.c#L3669)
     if (base_ca_ops && base_ca_ops->cong_avoid)
         base_ca_ops->cong_avoid(sk, ack, acked);
     return;
@@ -553,7 +563,10 @@ void log_cwnd_event(struct sock *sk, enum tcp_ca_event ev) {
 }
 
 void log_in_ack_event(struct sock *sk, u32 flags) {
-    tcplog_log_event(tcplog_event_names[PACKETS_ACKED], sk, NULL);
+    // Trigger packet ack log event if not handled by cong_avoid
+    // https://github.com/torvalds/linux/blob/944aacb68baf7624ab8d277d0ebf07f025ca137c/net/ipv4/tcp_input.c#L3654
+    if ((base_ca_ops && base_ca_ops->cong_control) || tcp_in_cwnd_reduction(sk))
+        tcplog_log_event(tcplog_event_names[PACKETS_ACKED], sk, NULL);
     return;
 }
 
