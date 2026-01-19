@@ -6,7 +6,7 @@ import argparse
 from datetime import datetime
 
 def to_ms(t):
-    return float(t) / 1000.0
+    return float(t) # already in miliseconds, but function left to adapt to format changes in future
 
 def tz_time(e):
     return datetime.fromtimestamp(to_ms(e["time"]))
