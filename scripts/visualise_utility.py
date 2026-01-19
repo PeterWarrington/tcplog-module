@@ -44,11 +44,13 @@ else:
 
 ax1.set_ylabel("cwnd")
 ax1.yaxis.label.set_color("#00F")
-ax1.set_xlim(0, ax1.get_xlim()[1])
+
 ax1.set_ylim(0, ax1.get_ylim()[1])
 
-ax1.xaxis.set_minor_locator(plticker.AutoMinorLocator(8))
-ax1.xaxis.set_major_locator(plticker.MaxNLocator(20))
+if not args.timestamp_display:
+    ax1.set_xlim(0, ax1.get_xlim()[1])
+    ax1.xaxis.set_minor_locator(plticker.AutoMinorLocator(8))
+    ax1.xaxis.set_major_locator(plticker.MaxNLocator(20))
 
 ax2 = ax1.twinx()
 
