@@ -81,6 +81,6 @@ Vagrant.configure("2") do |config|
 
   config.vm.provision "shell", inline: <<-SHELL
     sudo apt-get update
-    sudo apt-get install -y gcc make git gh
+    sudo apt-get install -y gcc make git gh mininet openvswitch-switch openvswitch-testcontroller
   SHELL
 end
