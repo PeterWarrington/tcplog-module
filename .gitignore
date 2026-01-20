@@ -12,3 +12,4 @@
 .vscode/vc.db-shm
 .vscode/
 .vscode/vc.db-wal
+*.pcap
