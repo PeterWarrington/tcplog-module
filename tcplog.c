@@ -62,7 +62,7 @@ static char event_template[] = "{\n"
     "}\n\x04"; // End-Of-Transmission character for splitting JSON records
 
 #define DMESG_VERBOSE 0
-#define DMESG_LOG 1
+#define DMESG_LOG 0
 
 #define TEMPLATE_TOKEN_SIZE 5
 
@@ -537,7 +537,7 @@ void log_set_state(struct sock *sk, u8 new_state) {
     struct tcplog_extra_data data;
     data.new_state = new_state + 1;
     tcplog_log_event(tcplog_event_names[STATE_UPDATED], sk, &data);
-    if (data.new_state == TCP_CA_Disorder + 1) { // Triple duplicate ack occurred
+    if (data.new_state == TCP_CA_Recovery + 1) { // Triple duplicate ack occurred https://github.com/torvalds/linux/blob/24d479d26b25bce5faea3ddd9fa8f3a6c3129ea7/net/ipv4/tcp_input.c#L2973
         data.drop_cause = TRIPLE_DUPLICATE_ACKS;
         tcplog_log_event(tcplog_event_names[PACKET_DROPPED], sk, &data);
     }

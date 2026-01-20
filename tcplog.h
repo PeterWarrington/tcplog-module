@@ -23,6 +23,7 @@ static char* tcplog_event_names[] = {
 };
 
 enum TcplogDropCause {
+   UNSPECIFIED = 0,
    RETRANSMISSION_TIMEOUT = 1,
    TRIPLE_DUPLICATE_ACKS = 2
 };
