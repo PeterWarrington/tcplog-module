@@ -14,7 +14,7 @@ Vagrant.configure("2") do |config|
   # boxes at https://vagrantcloud.com/search.
   config.vm.box = "hashicorp-education/ubuntu-24-04"
 
-  config.vm.synced_folder "../", "/home/vagrant/shared", create: true
+  config.vm.synced_folder "./", "/home/vagrant/tcplog-module", create: true
 
   config.vm.network "forwarded_port", guest: 22, host: 22
 
