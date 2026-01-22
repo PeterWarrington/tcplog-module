@@ -40,3 +40,7 @@ view-log:
 
 dmesg:
 	sudo dmesg -w
+
+mininet:
+	vagrant up
+	vagrant ssh -c "cd tcplog-module && sudo python3 scripts/mininet_tester.py -o log/test-mininet.json"
