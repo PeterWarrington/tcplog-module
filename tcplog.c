@@ -215,11 +215,6 @@ void tcplog_log_event(char* event_name, struct sock *sk, struct tcplog_extra_dat
                         }
                     } else if (strcmp(event_name, tcplog_event_names[STATE_UPDATED]) == 0 && extra != NULL) {
                         if (extra->new_state != 0) {
-                            local_buffer[buf_i++] = ',';
-                            char from_start[] = "\"old\": \"";
-                            for (int i=0; from_start[i] != '\0'; i++) local_buffer[buf_i++] = from_start[i];
-                            char *from_state_name = log_ca_states[previous_state];
-                            for (int i=0; from_state_name[i] != '\0'; i++) local_buffer[buf_i++] = from_state_name[i];
                             char to_start[] = "\", \"new\": \"";
                             for (int i=0; to_start[i] != '\0'; i++) local_buffer[buf_i++] = to_start[i];
                             char *to_state_name = log_ca_states[extra->new_state];
