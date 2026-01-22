@@ -44,11 +44,13 @@ else:
 # Set up window
 root = tk.Tk()
 root.title("TCPLog Visualisation Utility")
-root.resizable(False, False)
 frame = ttk.Frame(root, padding=10)
 frame.grid()
 
 # root.tk.call("::tk::unsupported::MacWindowStyle", "appearance", root._w, "aqua")
+
+# Set up event detail (json) display
+event_detail = tk.Text(root, height=15, borderwidth=1, relief="solid")
 
 # Set up event list
 eventv = ttk.Treeview(master=root, selectmode="browse", columns=("time", "name", "cwnd", "extra"))
@@ -62,7 +64,18 @@ eventv.heading("cwnd", text="cwnd")
 eventv.column('cwnd', stretch="no", width=60)
 eventv.heading("extra", text="Extra")
 
-eventv.tag_configure('congestion', background="#FF0000")
+eventv.tag_configure('congestion', background="#FF0000", foreground="#FFFFFF")
+
+def event_select_index(i):
+    event_json = json.dumps(data[i], indent=4)
+    event_detail.delete(1.0, tk.END)
+    event_detail.insert(tk.END, event_json)
+
+def event_select_list(*args):
+    index_selected = int(eventv.item(eventv.focus())["text"].replace("#",""))
+    event_select_index(index_selected)
+
+eventv.bind_all("<<TreeviewSelect>>", event_select_list)
 
 # Populate data structures
 num_data = [] # data of numeric type only for numpy
@@ -77,6 +90,7 @@ for i, e in enumerate(data):
         e["data"]["state_variables"]["cwnd"],
         extra_text),
         tags=(("congestion") if e["name"] == "tcplog:packet_dropped" else ()))
+
 data_matrix = np.array(num_data)
 
 # column titles
@@ -92,7 +106,9 @@ def makePlot():
     plt.rcParams.update({"font.size": 6})
     fig, ax1 = plt.subplots()
 
-    ax1.plot(data_matrix[:,D["time"]], data_matrix[:,D["cwnd"]], marker = 'o', color="#00F")
+    ax1.plot(data_matrix[:,D["time"]], data_matrix[:,D["cwnd"]],
+        marker = 'o',
+        color="#00F")
 
     ax1.set_xlabel(time_label)
 
@@ -136,8 +152,24 @@ plotFig = makePlot()
 plotFig.set_dpi(100)
 
 canvas = FigureCanvasTkAgg(plotFig, master=root)
+
+def event_select_mpl(event):
+    mouse_x = event.mouseevent.xdata
+    nearest = np.abs(data_matrix[:, D["time"]] - mouse_x).argmin()
+
+    eventv_entry = eventv.get_children()[nearest]
+    eventv.focus(eventv_entry)
+    eventv.selection_set(eventv_entry) # this calls event_select_i
+    eventv.yview_moveto(float(nearest) / float(len(data)))
+
+plotFig.set_picker(True)
+
+canvas.mpl_connect("pick_event", event_select_mpl)
+
 canvas.draw()
-canvas.get_tk_widget().grid(column=0, row=2, columnspan=3, sticky="nsew")
+canvas_w = canvas.get_tk_widget()
+canvas_w.configure(borderwidth=1, relief="solid")
+canvas_w.grid(column=0, row=2, columnspan=3, sticky="nsew")
 
 toolbar = NavigationToolbar2Tk(canvas, root, pack_toolbar=False)
 toolbar.update()
@@ -145,5 +177,7 @@ toolbar.update()
 toolbar.grid(column=0, row=3, columnspan=3, sticky="w")
 
 eventv.grid(column=4, row=2, rowspan=1, sticky="nsew", padx=10)
+
+event_detail.grid(column=0, row=4, columnspan=5, sticky="wsew", padx=5, pady=5)
 
 tk.mainloop()
