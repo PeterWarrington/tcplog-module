@@ -154,7 +154,7 @@ plotFig.set_dpi(100)
 canvas = FigureCanvasTkAgg(plotFig, master=root)
 
 def event_select_mpl(event):
-    mouse_x = event.mouseevent.xdata
+    mouse_x = event.xdata
     nearest = np.abs(data_matrix[:, D["time"]] - mouse_x).argmin()
 
     eventv_entry = eventv.get_children()[nearest]
@@ -164,7 +164,7 @@ def event_select_mpl(event):
 
 plotFig.set_picker(True)
 
-canvas.mpl_connect("pick_event", event_select_mpl)
+canvas.mpl_connect("button_press_event", event_select_mpl)
 
 canvas.draw()
 canvas_w = canvas.get_tk_widget()
