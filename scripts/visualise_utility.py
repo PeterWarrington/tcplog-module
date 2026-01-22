@@ -66,10 +66,21 @@ eventv.heading("extra", text="Extra")
 
 eventv.tag_configure('congestion', background="#FF0000", foreground="#FFFFFF")
 
+last_select_line = None
+
 def event_select_index(i):
+    global last_select_line
+
     event_json = json.dumps(data[i], indent=4)
     event_detail.delete(1.0, tk.END)
     event_detail.insert(tk.END, event_json)
+
+    if last_select_line is not None:
+        last_select_line.remove()
+
+    last_select_line = plt.axvline(time(data[i]), color="#0095FF", linestyle="-.")
+    canvas.draw_idle()
+
 
 def event_select_list(*args):
     index_selected = int(eventv.item(eventv.focus())["text"].replace("#",""))
