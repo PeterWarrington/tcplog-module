@@ -160,7 +160,7 @@ def filter(e):
     filter_terms = filter_var.get().split(" ")
     populate_data(filter_terms)
 
-filter_box = tk.Entry(right_frame, borderwidth=1, relief="solid", textvariable=filter_var)
+filter_box = ttk.Entry(right_frame, textvariable=filter_var)
 filter_box.grid(column=0, row=0, sticky="nsew", ipady=5)
 filter_box.bind('<Return>', filter)
 
