@@ -57,7 +57,7 @@ right_frame.rowconfigure(1, weight = 1)
 # Set up event list
 eventv = ttk.Treeview(master=right_frame, selectmode="browse", columns=("time", "name", "cwnd", "extra"))
 
-eventv.grid(column=0, row=1, sticky="nsew", rowspan=5)
+eventv.grid(column=0, row=1, sticky="nsew")
 
 eventv.heading("#0", text="Event")
 eventv.column('#0', width=60, stretch="no")
@@ -71,6 +71,7 @@ eventv.heading("extra", text="Extra")
 
 eventv.tag_configure('congestion', background="#FF0000", foreground="#FFFFFF")
 
+filter_on_graph_bool = tk.BooleanVar()
 last_select_line = None
 
 def event_select_index(i):
@@ -88,13 +89,21 @@ def event_select_index(i):
 
 
 def event_select_list(*args):
-    index_selected = int(eventv.item(eventv.focus())["text"].replace("#",""))
-    event_select_index(index_selected)
+    focus_id = eventv.focus()
+    if len(focus_id) > 0:
+        index_selected = int(eventv.item(eventv.focus())["text"].replace("#",""))
+        event_select_index(index_selected)
 
 eventv.bind_all("<<TreeviewSelect>>", event_select_list)
 
+data_matrix = None
+
 # Populate data structures
 def populate_data(filter_terms=[]):
+    global data_matrix
+    global canvas
+    global draw_plot
+
     # clear event list
     eventv.delete(*eventv.get_children())
 
@@ -149,20 +158,25 @@ def populate_data(filter_terms=[]):
 
     data_matrix = np.array(num_data)
 
-    return data_matrix
+    if filter_on_graph_bool.get():
+        canvas = draw_plot()
 
-data_matrix = populate_data()
+populate_data()
 
 # set up filter box
-filter_var=tk.StringVar()
+filter_str_var=tk.StringVar()
 
-def filter(e):
-    filter_terms = filter_var.get().split(" ")
+def filter(e=None):
+    filter_terms = filter_str_var.get().split(" ")
     populate_data(filter_terms)
 
-filter_box = ttk.Entry(right_frame, textvariable=filter_var)
+filter_box = ttk.Entry(right_frame, textvariable=filter_str_var)
 filter_box.grid(column=0, row=0, sticky="nsew", ipady=5)
 filter_box.bind('<Return>', filter)
+
+# set up graph view checkbox
+filter_graph_checkbox = ttk.Checkbutton(root, text="Only show filtered events on graph", variable=filter_on_graph_bool, command=filter)
+filter_graph_checkbox.grid(column=4, row=3, columnspan=3, sticky="w", padx=20)
 
 # column titles
 D = dict({
@@ -173,82 +187,87 @@ D = dict({
     "is_loss": 4
 })
 
-def makePlot():
-    plt.rcParams.update({"font.size": 6})
-    fig, ax1 = plt.subplots()
-
-    ax1.plot(data_matrix[:,D["time"]], data_matrix[:,D["cwnd"]],
-        marker = 'o',
-        color="#00F")
-
-    ax1.set_xlabel(time_label)
-
-    ax1.set_ylabel("cwnd")
-    ax1.yaxis.label.set_color("#00F")
-
-    ax1.set_ylim(0, ax1.get_ylim()[1])
-
-    if not args.timestamp_display:
-        ax1.set_xlim(0, ax1.get_xlim()[1])
-        ax1.xaxis.set_minor_locator(plticker.AutoMinorLocator(8))
-        ax1.xaxis.set_major_locator(plticker.MaxNLocator(20))
-
-    ax2 = ax1.twinx()
-
-    if args.rtt:
-        data_points = data_matrix[:, D["rtt"]]
-        ax2.set_ylabel("rtt (microseconds)")
-    else:
-        data_points = data_matrix[:, D["ssthresh"]]
-        ax2.set_ylabel("ssthresh")
-        ax2.set_ylim(ax1.get_ylim())
-
-    ax2.plot(data_matrix[:,D["time"]], data_points, marker = 'o', color="#0F0")
-
-    ax2.yaxis.label.set_color("#0F0")
-
-    for ax in (ax1, ax2):
-        ax.yaxis.set_minor_locator(plticker.AutoMinorLocator(8))
-        ax.yaxis.set_major_locator(plticker.MaxNLocator(20))
-
-    for x in data_matrix[data_matrix[:, D["is_loss"]] != 0][:, D["time"]]:
-        plt.axvline(x, color="#F00")
-
-    return fig
-
 ttk.Label(root, text="TCPLog Visualisation Utility", font=font.Font(weight="bold")).grid(column=0, row=0, sticky="w")
 ttk.Label(root, text="© Peter Warrington 2026").grid(column=0, row=1, sticky="wsew")
 
-plotFig = makePlot()
-plotFig.set_dpi(100)
+def draw_plot():
+    def makePlot():
+        plt.rcParams.update({"font.size": 6})
+        fig, ax1 = plt.subplots()
 
-canvas = FigureCanvasTkAgg(plotFig, master=root)
+        ax1.plot(data_matrix[:,D["time"]], data_matrix[:,D["cwnd"]],
+            marker = 'o',
+            color="#00F")
 
-def event_select_mpl(event):
-    mouse_x = event.xdata
-    nearest = np.abs(data_matrix[:, D["time"]] - mouse_x).argmin()
+        ax1.set_xlabel(time_label)
 
-    eventv_entry = eventv.get_children()[nearest]
-    eventv.focus(eventv_entry)
-    eventv.selection_set(eventv_entry) # this calls event_select_i
-    eventv.yview_moveto(float(nearest) / float(len(data)))
+        ax1.set_ylabel("cwnd")
+        ax1.yaxis.label.set_color("#00F")
 
-plotFig.set_picker(True)
+        ax1.set_ylim(0, ax1.get_ylim()[1])
 
-canvas.mpl_connect("button_press_event", event_select_mpl)
+        if not args.timestamp_display:
+            ax1.set_xlim(0, ax1.get_xlim()[1])
+            ax1.xaxis.set_minor_locator(plticker.AutoMinorLocator(8))
+            ax1.xaxis.set_major_locator(plticker.MaxNLocator(20))
 
-canvas.draw()
-canvas_w = canvas.get_tk_widget()
-canvas_w.configure(borderwidth=1, relief="solid")
-canvas_w.grid(column=0, row=2, columnspan=3, sticky="nsew")
+        ax2 = ax1.twinx()
 
-toolbar = NavigationToolbar2Tk(canvas, root, pack_toolbar=False)
-toolbar.update()
+        if args.rtt:
+            data_points = data_matrix[:, D["rtt"]]
+            ax2.set_ylabel("rtt (microseconds)")
+        else:
+            data_points = data_matrix[:, D["ssthresh"]]
+            ax2.set_ylabel("ssthresh")
+            ax2.set_ylim(ax1.get_ylim())
 
-toolbar.grid(column=0, row=3, columnspan=3, sticky="w")
+        ax2.plot(data_matrix[:,D["time"]], data_points, marker = 'o', color="#0F0")
+
+        ax2.yaxis.label.set_color("#0F0")
+
+        for ax in (ax1, ax2):
+            ax.yaxis.set_minor_locator(plticker.AutoMinorLocator(8))
+            ax.yaxis.set_major_locator(plticker.MaxNLocator(20))
+
+        for x in data_matrix[data_matrix[:, D["is_loss"]] != 0][:, D["time"]]:
+            plt.axvline(x, color="#F00")
+
+        return fig
+
+    plotFig = makePlot()
+    plotFig.set_dpi(100)
+
+    canvas = FigureCanvasTkAgg(plotFig, master=root)
+
+    def event_select_mpl(event):
+        mouse_x = event.xdata
+        nearest = np.abs(data_matrix[:, D["time"]] - mouse_x).argmin()
+
+        eventv_entry = eventv.get_children()[nearest]
+        eventv.focus(eventv_entry)
+        eventv.selection_set(eventv_entry) # this calls event_select_i
+        eventv.yview_moveto(float(nearest) / float(data_matrix.shape[0]))
+
+    plotFig.set_picker(True)
+
+    canvas.mpl_connect("button_press_event", event_select_mpl)
+
+    canvas.draw()
+    canvas_w = canvas.get_tk_widget()
+    canvas_w.configure(borderwidth=1, relief="solid")
+    canvas_w.grid(column=0, row=2, columnspan=3, sticky="nsew")
+
+    toolbar = NavigationToolbar2Tk(canvas, root, pack_toolbar=False)
+    toolbar.update()
+
+    toolbar.grid(column=0, row=3, columnspan=3, sticky="w")
+
+    return canvas
 
 event_detail.grid(column=0, row=4, columnspan=5, sticky="sew", padx=5, pady=5)
 
 right_frame.grid(column=4, row=0, rowspan=3, sticky="nsew", padx=10)
+
+canvas = draw_plot()
 
 tk.mainloop()
