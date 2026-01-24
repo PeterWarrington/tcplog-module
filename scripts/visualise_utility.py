@@ -44,16 +44,21 @@ else:
 # Set up window
 root = tk.Tk()
 root.title("TCPLog Visualisation Utility")
-frame = ttk.Frame(root, padding=10)
-frame.grid()
 
 # root.tk.call("::tk::unsupported::MacWindowStyle", "appearance", root._w, "aqua")
 
 # Set up event detail (json) display
 event_detail = tk.Text(root, height=15, borderwidth=1, relief="solid")
 
+# set up right frame (event list and filter box)
+right_frame = tk.Frame(root)
+right_frame.rowconfigure(1, weight = 1)
+
 # Set up event list
-eventv = ttk.Treeview(master=root, selectmode="browse", columns=("time", "name", "cwnd", "extra"))
+eventv = ttk.Treeview(master=right_frame, selectmode="browse", columns=("time", "name", "cwnd", "extra"))
+
+eventv.grid(column=0, row=1, sticky="nsew", rowspan=5)
+
 eventv.heading("#0", text="Event")
 eventv.column('#0', width=60, stretch="no")
 eventv.heading("time", text="Time")
@@ -89,20 +94,75 @@ def event_select_list(*args):
 eventv.bind_all("<<TreeviewSelect>>", event_select_list)
 
 # Populate data structures
-num_data = [] # data of numeric type only for numpy
-for i, e in enumerate(data):
-    num_data.append((time(e), e["data"]["state_variables"]["cwnd"], e["data"]["state_variables"]["rtt"], e["data"]["state_variables"]["ssthresh"], e["name"] == "tcplog:packet_dropped"))
+def populate_data(filter_terms=[]):
+    # clear event list
+    eventv.delete(*eventv.get_children())
 
-    # compute extra field
-    extra_fields = ["to", "from", "acked", "cause", "ca_event"]
-    extra_text = ", ".join([f"{f}={e["data"][f]}" for f in extra_fields if f in e["data"]])
-    eventv.insert(f"", tk.END, text=f"#{i}", values=(time(e),
-        e["name"].replace("tcplog:", ""),
-        e["data"]["state_variables"]["cwnd"],
-        extra_text),
-        tags=(("congestion") if e["name"] == "tcplog:packet_dropped" else ()))
+    num_data = [] # data of numeric type only for numpy
+    for i, e in enumerate(data):
+        # determine if should filter out this item
+        filtered_out = False
+        for t in filter_terms:
+            if "=" in t and len(t.split("=")) == 2:
+                (k, v) = t.split("=")
+                if k == "port":
+                    if not (e["data"]["source_port"] == int(v) or e["data"]["destination_port"] == int(v)):
+                        filtered_out = True
+                        break
+                if k == "source_port":
+                    if not (e["data"]["source_port"] == int(v)):
+                        filtered_out = True
+                        break
+                if k == "destination_port":
+                    if not (e["data"]["destination_port"] == int(v)):
+                        filtered_out = True
+                        break
+                if k == "source_ip":
+                    if not (e["data"]["source_ip"] == v):
+                        filtered_out = True
+                        break
+                if k == "destination_ip":
+                    if not (e["data"]["destination_ip"] == v):
+                        filtered_out = True
+                        break
+            else:
+                # keyword filter
+                if not (t in json.dumps(e)):
+                    filtered_out = True
+                    break
+        if filtered_out:
+            continue
 
-data_matrix = np.array(num_data)
+        # append data
+        num_data.append((time(e), e["data"]["state_variables"]["cwnd"], e["data"]["state_variables"]["rtt"], e["data"]["state_variables"]["ssthresh"], e["name"] == "tcplog:packet_dropped"))
+
+        # compute extra field
+        extra_fields = ["to", "from", "acked", "cause", "ca_event"]
+        extra_text = ", ".join([f"{f}={e["data"][f]}" for f in extra_fields if f in e["data"]])
+
+        # add to event list
+        eventv.insert(f"", tk.END, text=f"#{i}", values=(time(e),
+            e["name"].replace("tcplog:", ""),
+            e["data"]["state_variables"]["cwnd"],
+            extra_text),
+            tags=(("congestion") if e["name"] == "tcplog:packet_dropped" else ()))
+
+    data_matrix = np.array(num_data)
+
+    return data_matrix
+
+data_matrix = populate_data()
+
+# set up filter box
+filter_var=tk.StringVar()
+
+def filter(e):
+    filter_terms = filter_var.get().split(" ")
+    populate_data(filter_terms)
+
+filter_box = tk.Entry(right_frame, borderwidth=1, relief="solid", textvariable=filter_var)
+filter_box.grid(column=0, row=0, sticky="nsew", ipady=5)
+filter_box.bind('<Return>', filter)
 
 # column titles
 D = dict({
@@ -156,8 +216,8 @@ def makePlot():
 
     return fig
 
-ttk.Label(frame, text="TCPLog Visualisation Utility", font=font.Font(weight="bold")).grid(column=0, row=0, sticky="w")
-ttk.Label(frame, text="© Peter Warrington 2026").grid(column=0, row=1, sticky="w")
+ttk.Label(root, text="TCPLog Visualisation Utility", font=font.Font(weight="bold")).grid(column=0, row=0, sticky="w")
+ttk.Label(root, text="© Peter Warrington 2026").grid(column=0, row=1, sticky="wsew")
 
 plotFig = makePlot()
 plotFig.set_dpi(100)
@@ -187,8 +247,8 @@ toolbar.update()
 
 toolbar.grid(column=0, row=3, columnspan=3, sticky="w")
 
-eventv.grid(column=4, row=2, rowspan=1, sticky="nsew", padx=10)
+event_detail.grid(column=0, row=4, columnspan=5, sticky="sew", padx=5, pady=5)
 
-event_detail.grid(column=0, row=4, columnspan=5, sticky="wsew", padx=5, pady=5)
+right_frame.grid(column=4, row=0, rowspan=3, sticky="nsew", padx=10)
 
 tk.mainloop()
