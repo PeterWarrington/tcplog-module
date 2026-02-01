@@ -84,8 +84,6 @@ class TcplogVisualiser:
         self.tk_root = tk.Tk()
         self.tk_root.title("TCPLog Visualisation Utility")
 
-        self.tk_root.resizable(0, 0)
-
         # root.tk.call("::tk::unsupported::MacWindowStyle", "appearance", root._w, "aqua") # Force mac light mode
         self.is_dark = bool(self.tk_root.tk.call("tk::unsupported::MacWindowStyle", "isdark", self.tk_root._w))
 
