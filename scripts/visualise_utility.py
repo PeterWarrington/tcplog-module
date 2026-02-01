@@ -288,6 +288,12 @@ class TcplogVisualiser:
 
         self.tk_toolbar.grid(column=0, row=3, columnspan=3, sticky="w")
 
+        # tkinter canvas tries to change the icon of the app
+        try:
+            self.tk_root.iconphoto(True, tk.PhotoImage(file = 'tcplog-logo.png'))
+        except:
+            pass
+
         return self.canvas
 
     def html_export(self, html_file=None, print_html=False, display=False):
