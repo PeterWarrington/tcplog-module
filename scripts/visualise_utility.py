@@ -372,13 +372,19 @@ class TcplogVisualiser:
 
     def tk_export(self):
         file = filedialog.asksaveasfile(initialfile="tcplog_output.csv", defaultextension=".csv", filetypes=[("CSV file", "*.csv"), ("HTML file with embedded image", "*.html")])
+        if file is None: # user canceled
+            return
         extension = file.name.split(".")[-1]
-        if extension == "csv":
-            self.csv_export(file)
-        elif extension == "html":
-            self.html_export(file)
-        else:
-            messagebox.showerror(title="Export failed", message="Selected filetype cannot be determined.")
+        try:
+            if extension == "csv":
+                self.csv_export(file)
+            elif extension == "html":
+                self.html_export(file)
+            else:
+                messagebox.showerror(title="Export failed", message="Export failed\n\nSelected filetype cannot be determined.")
+        except Exception as e:
+            print(e)
+            messagebox.showerror(title="Export failed", message=f"Export failed\n\nAn error occurred: {e}")
 
     def tk_display(self):
         self.canvas = self.draw_plot()
