@@ -1,3 +1,4 @@
+from io import TextIOBase
 import matplotlib.pyplot as plt
 import matplotlib.ticker as plticker
 import numpy as np
@@ -135,13 +136,16 @@ class TcplogVisualiser:
         options_frame = ttk.Frame(self.tk_root)
 
         self.tk_filter_graph_checkbox = ttk.Checkbutton(options_frame, text="Only show filtered events on graph", variable=self.tk_filter_on_graph_bool, command=self.filter)
-        self.tk_filter_graph_checkbox.grid(column=0, row=0, sticky="w")
+        self.tk_filter_graph_checkbox.grid(column=0, row=0, sticky="w", columnspan=2)
 
         ttk.Label(self.tk_root, text="TCPLog Visualisation Utility", font=font.Font(weight="bold")).grid(column=0, row=0, sticky="w")
         ttk.Label(self.tk_root, text="© Peter Warrington 2026").grid(column=0, row=1, sticky="wsew")
 
+        export_button = ttk.Button(options_frame, text="Export...", command=lambda: self.tk_export())
+        export_button.grid(column=0, row=1, sticky="w")
+
         print_button = ttk.Button(options_frame, text="Print graph and table", command=lambda: self.html_export(print_html=True, display=True))
-        print_button.grid(column=0, row=1, sticky="w")
+        print_button.grid(column=1, row=1, sticky="w", padx=10)
 
         options_frame.grid(column=4, row=3, columnspan=3, sticky="w")
 
@@ -286,9 +290,9 @@ class TcplogVisualiser:
 
         return self.canvas
 
-    def html_export(self, path=None, print_html=False, display=False):
+    def html_export(self, html_file=None, print_html=False, display=False):
         with tempfile.TemporaryDirectory(delete=False) as tmp_dir:
-            html_path = path if path is not None else os.path.join(tmp_dir, "tcplog_visualiser_output.html")
+            html_file = html_file if html_file is not None else os.path.join(tmp_dir, "tcplog_visualiser_output.html")
             img_path = os.path.join(tmp_dir, "tcplog_visualiser_output.png")
 
             temp_fig = self.make_plot("ggplot")
@@ -342,20 +346,39 @@ class TcplogVisualiser:
                         """
             html += "</body></html>"
 
-            with open(html_path, "w") as html_file:
-                html_file.write(html)
+            def write_html(file):
+                file.write(html)
                 if display:
-                    webbrowser.open(f"file://{os.path.abspath(html_path)}")
+                    webbrowser.open(f"file://{os.path.abspath(file.name)}")
 
-    def csv_export(self, csv_path):
+            if isinstance(html_file, TextIOBase):
+                write_html(html_file)
+            else:
+                with open(html_file, "w") as f:
+                    write_html(f)
+
+    def csv_export(self, csv_file):
         csv = ""
         csv += ",".join(self.eventv["columns"]) + "\n"
         for event_id in self.eventv.get_children():
             event = self.eventv.item(event_id)
             csv += ",".join([str(v) for v in event["values"]]) + "\n"
 
-        with open(csv_path, "w") as f:
-            f.write(csv)
+        if isinstance(csv_file, TextIOBase):
+            csv_file.write(csv)
+        else:
+            with open(csv_file, "w") as f:
+                f.write(csv)
+
+    def tk_export(self):
+        file = filedialog.asksaveasfile(initialfile="tcplog_output.csv", defaultextension=".csv", filetypes=[("CSV file", "*.csv"), ("HTML file with embedded image", "*.html")])
+        extension = file.name.split(".")[-1]
+        if extension == "csv":
+            self.csv_export(file)
+        elif extension == "html":
+            self.html_export(file)
+        else:
+            messagebox.showerror(title="Export failed", message="Selected filetype cannot be determined.")
 
     def tk_display(self):
         self.canvas = self.draw_plot()
