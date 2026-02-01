@@ -13,6 +13,7 @@ from matplotlib.backends.backend_tkagg import (FigureCanvasTkAgg,
 import tempfile
 import webbrowser
 import os
+import time
 
 def to_ms(t):
     return float(t) / 1000
@@ -32,6 +33,7 @@ args = arg_parser.parse_args()
 
 f = open(args.input)
 data = json.loads(f.read())
+last_modified = time.ctime(os.path.getmtime(f.name))
 
 start_time = data[0]["time"]
 def ms_from_start(e):
@@ -290,7 +292,6 @@ def html_print():
                 body {
                     text-align: left;
                     font-family: sans-serif;
-                    border: 1px solid black;
                 }
                 table {
                     width: 100%;
@@ -304,7 +305,10 @@ def html_print():
                     color: white;
                 }
                 </style>"""
-        html += f"<img src='file://{img_path}'/><br/>"
+        html += f"<h1>{args.input}</h1>"
+        html += f"<h2>{last_modified}</h2>"
+        html += f"<h3 color='grey'>TCPLog visualisation</h3>"
+        html += f"<img src='file://{img_path}'/><br/><div style='break-after:page'></div><br/>"
         html += "<table>"
         html += "<tr>" + "".join([f"<th>{col}</th>" for col in eventv["columns"]]) + "</tr>"
         for event_id in eventv.get_children():
