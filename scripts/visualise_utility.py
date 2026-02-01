@@ -45,6 +45,8 @@ else:
 root = tk.Tk()
 root.title("TCPLog Visualisation Utility")
 
+root.resizable(0, 0)
+
 # root.tk.call("::tk::unsupported::MacWindowStyle", "appearance", root._w, "aqua") # Force mac light mode
 is_dark = bool(root.tk.call("tk::unsupported::MacWindowStyle", "isdark", root._w))
 
@@ -208,8 +210,6 @@ def draw_plot():
             marker = '.', label="cwnd", zorder=10)
 
         ax1.set_xlabel(time_label)
-
-        ax1.set_ylabel("cwnd")
 
         ax1.set_ylim(0, ax1.get_ylim()[1])
 
