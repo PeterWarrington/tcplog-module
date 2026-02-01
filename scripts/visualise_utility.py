@@ -45,7 +45,13 @@ else:
 root = tk.Tk()
 root.title("TCPLog Visualisation Utility")
 
-# root.tk.call("::tk::unsupported::MacWindowStyle", "appearance", root._w, "aqua")
+# root.tk.call("::tk::unsupported::MacWindowStyle", "appearance", root._w, "aqua") # Force mac light mode
+is_dark = bool(root.tk.call("tk::unsupported::MacWindowStyle", "isdark", root._w))
+
+if is_dark:
+    plt.style.use('./scripts/styles/mac-dark.mplstyle')
+else:
+    plt.style.use("ggplot")
 
 # Set up event detail (json) display
 event_detail = tk.Text(root, height=15, borderwidth=1, relief="solid")
@@ -72,6 +78,8 @@ eventv.heading("extra", text="Extra")
 eventv.tag_configure('congestion', background="#FF0000", foreground="#FFFFFF")
 
 filter_on_graph_bool = tk.BooleanVar()
+example_select_line = plt.axvline(0, color="#0095FF", linestyle="dotted") # for the legend preview
+example_select_line.remove()
 last_select_line = None
 
 def event_select_index(i):
@@ -194,15 +202,14 @@ def draw_plot():
     def makePlot():
         plt.rcParams.update({"font.size": 6})
         fig, ax1 = plt.subplots()
+        fig.set_layout_engine("compressed")
 
         ax1.plot(data_matrix[:,D["time"]], data_matrix[:,D["cwnd"]],
-            marker = 'o',
-            color="#00F")
+            marker = '.', label="cwnd", zorder=10)
 
         ax1.set_xlabel(time_label)
 
         ax1.set_ylabel("cwnd")
-        ax1.yaxis.label.set_color("#00F")
 
         ax1.set_ylim(0, ax1.get_ylim()[1])
 
@@ -211,26 +218,23 @@ def draw_plot():
             ax1.xaxis.set_minor_locator(plticker.AutoMinorLocator(8))
             ax1.xaxis.set_major_locator(plticker.MaxNLocator(20))
 
-        ax2 = ax1.twinx()
+        ssthresh_points = data_matrix[:, D["ssthresh"]]
+
+        ax1.plot(data_matrix[:,D["time"]], ssthresh_points, marker = '.', label="ssthresh")
 
         if args.rtt:
-            data_points = data_matrix[:, D["rtt"]]
-            ax2.set_ylabel("rtt (microseconds)")
-        else:
-            data_points = data_matrix[:, D["ssthresh"]]
-            ax2.set_ylabel("ssthresh")
-            ax2.set_ylim(ax1.get_ylim())
+            rtt_points = data_matrix[:, D["rtt"]]
+            ax1.plot(data_matrix[:,D["time"]], rtt_points, marker = '.', label="rtt (miliseconds)")
 
-        ax2.plot(data_matrix[:,D["time"]], data_points, marker = 'o', color="#0F0")
+        ax1.yaxis.set_minor_locator(plticker.AutoMinorLocator(8))
+        ax1.yaxis.set_major_locator(plticker.MaxNLocator(20))
 
-        ax2.yaxis.label.set_color("#0F0")
-
-        for ax in (ax1, ax2):
-            ax.yaxis.set_minor_locator(plticker.AutoMinorLocator(8))
-            ax.yaxis.set_major_locator(plticker.MaxNLocator(20))
-
+        example_congestion_line = None
         for x in data_matrix[data_matrix[:, D["is_loss"]] != 0][:, D["time"]]:
-            plt.axvline(x, color="#F00")
+            example_congestion_line = plt.axvline(x, color="#F00")
+
+        ax1.legend([*ax1.lines[:2], example_congestion_line, example_select_line], [*[l.get_label() for l in ax1.lines[:2]], "Congestion event", "Selected event"],
+                   loc='upper right')
 
         return fig
 
@@ -254,8 +258,7 @@ def draw_plot():
 
     canvas.draw()
     canvas_w = canvas.get_tk_widget()
-    canvas_w.configure(borderwidth=1, relief="solid")
-    canvas_w.grid(column=0, row=2, columnspan=3, sticky="nsew")
+    canvas_w.grid(column=0, row=2, columnspan=3, sticky="nsew", padx=15)
 
     toolbar = NavigationToolbar2Tk(canvas, root, pack_toolbar=False)
     toolbar.update()
