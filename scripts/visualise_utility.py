@@ -14,7 +14,7 @@ import tempfile
 import webbrowser
 import os
 import time
-
+import base64
 
 class TcplogVisualiser:
     # https://stackoverflow.com/a/23689767 CC BY-SA 4.0
@@ -140,7 +140,7 @@ class TcplogVisualiser:
         ttk.Label(self.tk_root, text="TCPLog Visualisation Utility", font=font.Font(weight="bold")).grid(column=0, row=0, sticky="w")
         ttk.Label(self.tk_root, text="© Peter Warrington 2026").grid(column=0, row=1, sticky="wsew")
 
-        print_button = ttk.Button(options_frame, text="Print graph and table", command=self.html_print)
+        print_button = ttk.Button(options_frame, text="Print graph and table", command=lambda: self.html_export(print_html=True, display=True))
         print_button.grid(column=0, row=1, sticky="w")
 
         options_frame.grid(column=4, row=3, columnspan=3, sticky="w")
@@ -286,13 +286,18 @@ class TcplogVisualiser:
 
         return self.canvas
 
-    def html_print(self):
+    def html_export(self, path=None, print_html=False, display=False):
         with tempfile.TemporaryDirectory(delete=False) as tmp_dir:
-            html_path = os.path.join(tmp_dir, "tcplog_visualiser_output.html")
+            html_path = path if path is not None else os.path.join(tmp_dir, "tcplog_visualiser_output.html")
             img_path = os.path.join(tmp_dir, "tcplog_visualiser_output.png")
 
             temp_fig = self.make_plot("ggplot")
             temp_fig.savefig(img_path)
+
+            # convert image to base64 to embed in html
+            img_string = "data:image/png;base64,"
+            with open(img_path, "rb") as f:
+                img_string += base64.b64encode(f.read()).decode("utf-8")
 
             html = "<!DOCTYPE HTML><html><body>"
             html += """
@@ -319,7 +324,7 @@ class TcplogVisualiser:
             html += f"<h1>{self.args.input}</h1>"
             html += f"<h2>{self.last_modified}</h2>"
             html += f"<h3 color='grey'>TCPLog visualisation</h3>"
-            html += f"<img src='file://{img_path}'/><br/><div style='break-after:page'></div><br/>"
+            html += f"<img src='{img_string}'/><br/><div style='break-after:page'></div><br/>"
             html += "<table>"
             html += "<tr>" + "".join([f"<th>{col}</th>" for col in self.eventv["columns"]]) + "</tr>"
             for event_id in self.eventv.get_children():
@@ -329,7 +334,7 @@ class TcplogVisualiser:
                         + "</tr>")
             html += "</table>"
 
-            if not self.args.html:
+            if print_html:
                 html += """
                         <script>
                         window.print()
@@ -339,7 +344,18 @@ class TcplogVisualiser:
 
             with open(html_path, "w") as html_file:
                 html_file.write(html)
-                webbrowser.open(f"file://{os.path.abspath(html_path)}")
+                if display:
+                    webbrowser.open(f"file://{os.path.abspath(html_path)}")
+
+    def csv_export(self, csv_path):
+        csv = ""
+        csv += ",".join(self.eventv["columns"]) + "\n"
+        for event_id in self.eventv.get_children():
+            event = self.eventv.item(event_id)
+            csv += ",".join([str(v) for v in event["values"]]) + "\n"
+
+        with open(csv_path, "w") as f:
+            f.write(csv)
 
     def tk_display(self):
         self.canvas = self.draw_plot()
@@ -354,13 +370,16 @@ def parse_args():
     arg_parser.add_argument("input", type=str)
     arg_parser.add_argument("-t", "--timestamp-display", help="Display time as timestamp rather than ms since start.", action='store_true')
     arg_parser.add_argument("--rtt", help="Display rtt rather than ssthresh.", action='store_true')
-    arg_parser.add_argument("--html", help="Generate printable HTML output without GUI display.", action='store_true')
+    arg_parser.add_argument("--html", type=str, required=False, help="Output printable HTML output to filename without GUI display.")
+    arg_parser.add_argument("--csv", type=str, required=False, help="Output data to a CSV file to filename without GUI display.")
     return dict(arg_parser.parse_args()._get_kwargs())
 
 if __name__ == '__main__':
     args = parse_args()
     visualiser = TcplogVisualiser(**args)
     if args["html"]:
-        visualiser.html_print()
+        visualiser.html_export(args["html"])
+    elif args["csv"]:
+        visualiser.csv_export(args["csv"])
     else:
         visualiser.tk_display()
