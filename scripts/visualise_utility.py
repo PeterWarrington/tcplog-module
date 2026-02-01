@@ -352,10 +352,14 @@ def parse_args():
 
     arg_parser.add_argument("input", type=str)
     arg_parser.add_argument("-t", "--timestamp-display", help="Display time as timestamp rather than ms since start.", action='store_true')
-    arg_parser.add_argument("--rtt", help="Display rtt rather than ssthresh", action='store_true')
+    arg_parser.add_argument("--rtt", help="Display rtt rather than ssthresh.", action='store_true')
+    arg_parser.add_argument("--html", help="Generate printable HTML output without GUI display.", action='store_true')
     return dict(arg_parser.parse_args()._get_kwargs())
 
 if __name__ == '__main__':
     args = parse_args()
     visualiser = TcplogVisualiser(**args)
-    visualiser.tk_display()
+    if args["html"]:
+        visualiser.html_print()
+    else:
+        visualiser.tk_display()
