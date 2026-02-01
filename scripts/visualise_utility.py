@@ -10,6 +10,9 @@ from matplotlib.figure import Figure
 from matplotlib.backend_bases import key_press_handler
 from matplotlib.backends.backend_tkagg import (FigureCanvasTkAgg,
                                                NavigationToolbar2Tk)
+import tempfile
+import webbrowser
+import os
 
 def to_ms(t):
     return float(t) / 1000
@@ -51,9 +54,9 @@ root.resizable(0, 0)
 is_dark = bool(root.tk.call("tk::unsupported::MacWindowStyle", "isdark", root._w))
 
 if is_dark:
-    plt.style.use('./scripts/styles/mac-dark.mplstyle')
+    mpl_style = './scripts/styles/mac-dark.mplstyle'
 else:
-    plt.style.use("ggplot")
+    mpl_style = "ggplot"
 
 # Set up event detail (json) display
 event_detail = tk.Text(root, height=15, borderwidth=1, relief="solid")
@@ -185,8 +188,10 @@ filter_box.grid(column=0, row=0, sticky="nsew", ipady=5)
 filter_box.bind('<Return>', filter)
 
 # set up graph view checkbox
-filter_graph_checkbox = ttk.Checkbutton(root, text="Only show filtered events on graph", variable=filter_on_graph_bool, command=filter)
-filter_graph_checkbox.grid(column=4, row=3, columnspan=3, sticky="w", padx=20)
+options_frame = ttk.Frame(root)
+
+filter_graph_checkbox = ttk.Checkbutton(options_frame, text="Only show filtered events on graph", variable=filter_on_graph_bool, command=filter)
+filter_graph_checkbox.grid(column=0, row=0, sticky="w")
 
 # column titles
 D = dict({
@@ -200,8 +205,8 @@ D = dict({
 ttk.Label(root, text="TCPLog Visualisation Utility", font=font.Font(weight="bold")).grid(column=0, row=0, sticky="w")
 ttk.Label(root, text="© Peter Warrington 2026").grid(column=0, row=1, sticky="wsew")
 
-def draw_plot():
-    def makePlot():
+def make_plot(style=mpl_style):
+    with plt.style.context(style):
         plt.rcParams.update({"font.size": 6})
         fig, ax1 = plt.subplots()
         fig.set_layout_engine("compressed")
@@ -234,11 +239,12 @@ def draw_plot():
             example_congestion_line = plt.axvline(x, color="#F00")
 
         ax1.legend([*ax1.lines[:2], example_congestion_line, example_select_line], [*[l.get_label() for l in ax1.lines[:2]], "Congestion event", "Selected event"],
-                   loc='upper right')
+                    loc='upper right')
 
         return fig
 
-    plotFig = makePlot()
+def draw_plot():
+    plotFig = make_plot()
     plotFig.set_dpi(100)
 
     canvas = FigureCanvasTkAgg(plotFig, master=root)
@@ -266,6 +272,63 @@ def draw_plot():
     toolbar.grid(column=0, row=3, columnspan=3, sticky="w")
 
     return canvas
+
+def html_print():
+    with tempfile.TemporaryDirectory(delete=False) as tmp_dir:
+        html_path = os.path.join(tmp_dir, "tcplog_visualiser_output.html")
+        img_path = os.path.join(tmp_dir, "tcplog_visualiser_output.png")
+
+        temp_fig = make_plot("ggplot")
+        temp_fig.savefig(img_path)
+
+        html = "<!DOCTYPE HTML><html><body>"
+        html += """
+                <style>
+                table, th, td {
+                    border: 1px solid black;
+                }
+                body {
+                    text-align: left;
+                    font-family: sans-serif;
+                    border: 1px solid black;
+                }
+                table {
+                    width: 100%;
+                }
+                img {
+                    margin: 0 auto;
+                    display: block;
+                }
+                .loss {
+                    background: red;
+                    color: white;
+                }
+                </style>"""
+        html += f"<img src='file://{img_path}'/><br/>"
+        html += "<table>"
+        html += "<tr>" + "".join([f"<th>{col}</th>" for col in eventv["columns"]]) + "</tr>"
+        for event_id in eventv.get_children():
+            event = eventv.item(event_id)
+            html += (f"<tr{" class='loss'" if "packet_dropped" in event["values"] else ''}>"
+                        + "".join([f"<td>{str(v)}</td>" for v in event["values"]])
+                    + "</tr>")
+        html += "</table>"
+
+        html += """
+                <script>
+                window.print()
+                </script>
+                """
+        html += "</body></html>"
+
+        with open(html_path, "w") as html_file:
+            html_file.write(html)
+            webbrowser.open(f"file://{os.path.abspath(html_path)}")
+
+print_button = ttk.Button(options_frame, text="Print graph and table", command=html_print)
+print_button.grid(column=0, row=1, sticky="w")
+
+options_frame.grid(column=4, row=3, columnspan=3, sticky="w")
 
 event_detail.grid(column=0, row=4, columnspan=5, sticky="sew", padx=5, pady=5)
 
