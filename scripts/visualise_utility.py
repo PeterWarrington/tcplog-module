@@ -329,11 +329,12 @@ class TcplogVisualiser:
                         + "</tr>")
             html += "</table>"
 
-            html += """
-                    <script>
-                    window.print()
-                    </script>
-                    """
+            if not self.args.html:
+                html += """
+                        <script>
+                        window.print()
+                        </script>
+                        """
             html += "</body></html>"
 
             with open(html_path, "w") as html_file:
