@@ -330,8 +330,13 @@ class TcplogVisualiser:
                     }
                     </style>"""
             html += f"<h1>{self.args.input}</h1>"
+
+            if self.tk_filter_on_graph_bool.get() and len(self.tk_filter_str_var.get()) > 0:
+                html += f"<h2>With filter: {self.tk_filter_str_var.get()}</h2>"
+
             html += f"<h2>{self.last_modified}</h2>"
-            html += f"<h3 color='grey'>TCPLog visualisation</h3>"
+
+            html += f"<h3>TCPLog visualisation</h3>"
             html += f"<img src='{img_string}'/><br/><div style='break-after:page'></div><br/>"
             html += "<table>"
             html += "<tr>" + "".join([f"<th>{col}</th>" for col in self.eventv["columns"]]) + "</tr>"
