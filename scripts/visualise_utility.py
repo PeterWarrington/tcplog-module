@@ -297,13 +297,13 @@ class TcplogVisualiser:
     def html_export(self, html_file=None, print_html=False, display=False):
         with tempfile.TemporaryDirectory(delete=False) as tmp_dir:
             html_file = html_file if html_file is not None else os.path.join(tmp_dir, "tcplog_visualiser_output.html")
-            img_path = os.path.join(tmp_dir, "tcplog_visualiser_output.png")
+            img_path = os.path.join(tmp_dir, "tcplog_visualiser_output.svg")
 
             temp_fig = self.make_plot("ggplot")
             temp_fig.savefig(img_path)
 
             # convert image to base64 to embed in html
-            img_string = "data:image/png;base64,"
+            img_string = "data:image/svg+xml;base64,"
             with open(img_path, "rb") as f:
                 img_string += base64.b64encode(f.read()).decode("utf-8")
 
