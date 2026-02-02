@@ -26,6 +26,7 @@ arg_parser.add_argument("-t", "--duration", type=float, help="Length of time in 
 arg_parser.add_argument("-s", "--size", type=int, help="Maximum size of upload (mb).", default=512)
 arg_parser.add_argument("-q", "--queue-size", type=int, help="Max queue size of switch.", default=100)
 arg_parser.add_argument("-p", "--pcap", action="store_true", help="Capture pcap as well as tcplog.")
+arg_parser.add_argument("-n", "--host-count", type=int, help="Number of hosts to test", default=10)
 
 args = arg_parser.parse_args()
 
@@ -49,7 +50,7 @@ class SingleSwitchTopo( Topo ):
 
 
 def main():
-    topo = SingleSwitchTopo()
+    topo = SingleSwitchTopo(k = args.host_count)
 
     net = Mininet(topo=topo, link=TCLink, cleanup=True)
     net.start()
