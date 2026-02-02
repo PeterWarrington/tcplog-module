@@ -68,7 +68,7 @@ def main():
     subprocess.Popen(["dd", "if=/dev/urandom", f"of={tempdir}/random", "bs=1M", f"count={args.size}", "iflag=fullblock"], stdout=proc_stdout, stderr=proc_stderr).wait()
 
     # run capture
-    capture_proc = subprocess.Popen(["python3", "scripts/capture_utility.py", "-o", args.output], stdout=proc_stdout, stderr=proc_stderr) # port numbers won't align as tcplog is at kernel level
+    capture_proc = subprocess.Popen(["python3", "scripts/capture_utility.py", "-o", args.output], stdout=stdout, stderr=proc_stderr) # port numbers won't align as tcplog is at kernel level
 
     if args.pcap:
         subprocess.Popen(["bash", "-c", f"sudo tcpdump -i any -w {args.output}.pcap"], stdout=proc_stdout, stderr=proc_stderr)

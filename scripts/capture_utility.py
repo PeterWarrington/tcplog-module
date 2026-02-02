@@ -63,24 +63,31 @@ if args.input_file is None:
     print("Collecting events... Press CTRL+C to stop.")
     while True:
         try:
-            data_in = bytearray()
+            data_in = []
+            last_data_item = bytearray()
+            new_data_in = os.read(device, 2048)
             while True:
-                new_data_in = os.read(device, 2048)
                 if b'\x04' in new_data_in:
-                    data_in += new_data_in[:new_data_in.index(b'\x04')]
+                    new_data_in_split = [bytearray(ndi) for ndi in new_data_in.split(b'\x04') if len(ndi) > 0]
+                    last_data_item += new_data_in_split[0]
+                    data_in += [last_data_item]
+                    data_in += new_data_in_split[1:-1]
                     break
                 else:
-                    data_in += new_data_in
-                    offset += len(new_data_in)
-            str_in = str(data_in, encoding="utf-8")
-            try:
-                json_in = json.loads(str_in)
-            except json.JSONDecodeError as e:
-                continue
+                    last_data_item += bytearray(new_data_in)
 
-            # Filter checks
-            if filter_check(json_in):
-                events.append(json_in)
+            for event_data in data_in:
+                str_in = str(event_data, encoding="utf-8")
+                try:
+                    json_in = json.loads(str_in)
+                except json.JSONDecodeError as e:
+                    print(e)
+                    print(str_in)
+                    continue
+
+                # Filter checks
+                if filter_check(json_in):
+                    events.append(json_in)
         except KeyboardInterrupt:
             break
     os.close(device)

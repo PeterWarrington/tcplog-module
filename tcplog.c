@@ -115,27 +115,20 @@ void tcplog_log(const char *msg)
     if (tcplog_write_index == tcplog_read_index)
         tcplog_read_index = (tcplog_read_index + 1) % LOG_BUF_ENTRY_COUNT_MAX;
     
-    tcplog_entry_count = min(tcplog_entry_count + 1, 8);
+    tcplog_entry_count = tcplog_entry_count + 1;
 
-    // If we have filled entries or 50 miliseconds have passed, then flush them to readers
     u64 current_time = ktime_get_ns();
     u64 time_since_last_read = current_time - tcplog_last_read_time;
-    if (tcplog_read_index == tcplog_last_read_index || time_since_last_read > 50 * 1000) {
-        tcplog_last_read_index = tcplog_read_index;
 
-        if (DMESG_VERBOSE)
-            printk("DEV_TCPLOG: READY");
-        tcplog_buf_read_ready = true;
-        tcplog_last_read_time = current_time;
-        spin_unlock_bh(&tcplog_lock);
-        // wake any readers waiting for new data 
-        wake_up_interruptible(&tcplog_wq);
-    } else {
-        if (DMESG_VERBOSE)
-            printk("DEV_TCPLOG: NOT READY");
-        tcplog_buf_read_ready = false;
-        spin_unlock_bh(&tcplog_lock);
-    }
+    tcplog_last_read_index = tcplog_read_index;
+
+    if (DMESG_VERBOSE)
+        printk("DEV_TCPLOG: READY");
+    tcplog_buf_read_ready = true;
+    tcplog_last_read_time = current_time;
+    spin_unlock_bh(&tcplog_lock);
+    // wake any readers waiting for new data 
+    wake_up_interruptible(&tcplog_wq);
 }
 
 void tcplog_log_event(char* event_name, struct sock *sk, struct tcplog_extra_data *extra) {
@@ -215,7 +208,7 @@ void tcplog_log_event(char* event_name, struct sock *sk, struct tcplog_extra_dat
                         }
                     } else if (strcmp(event_name, tcplog_event_names[STATE_UPDATED]) == 0 && extra != NULL) {
                         if (extra->new_state != 0) {
-                            char to_start[] = "\", \"new\": \"";
+                            char to_start[] = ",\"new\": \"";
                             for (int i=0; to_start[i] != '\0'; i++) local_buffer[buf_i++] = to_start[i];
                             char *to_state_name = log_ca_states[extra->new_state];
                             previous_state = extra->new_state;
@@ -532,10 +525,18 @@ void log_set_state(struct sock *sk, u8 new_state) {
     struct tcplog_extra_data data;
     data.new_state = new_state + 1;
     tcplog_log_event(tcplog_event_names[STATE_UPDATED], sk, &data);
+    
     if (data.new_state == TCP_CA_Recovery + 1) { // Triple duplicate ack occurred https://github.com/torvalds/linux/blob/24d479d26b25bce5faea3ddd9fa8f3a6c3129ea7/net/ipv4/tcp_input.c#L2973
         data.drop_cause = TRIPLE_DUPLICATE_ACKS;
-        tcplog_log_event(tcplog_event_names[PACKET_DROPPED], sk, &data);
+    } else if (data.new_state == TCP_CA_CWR + 1) {
+        data.drop_cause = ECN;
+    } else if (data.new_state == TCP_CA_Disorder + 1) {
+        data.drop_cause = TRIPLE_DUPLICATE_ACKS;
     }
+
+    if (data.new_state > TCP_CA_Open + 1)
+        tcplog_log_event(tcplog_event_names[PACKET_DROPPED], sk, &data);
+
     if (base_ca_ops && base_ca_ops->set_state)
         base_ca_ops->set_state(sk, new_state);
     return;

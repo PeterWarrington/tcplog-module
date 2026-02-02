@@ -25,13 +25,15 @@ static char* tcplog_event_names[] = {
 enum TcplogDropCause {
    UNSPECIFIED = 0,
    RETRANSMISSION_TIMEOUT = 1,
-   TRIPLE_DUPLICATE_ACKS = 2
+   TRIPLE_DUPLICATE_ACKS = 2,
+   ECN = 3
 };
 
 static char* tcplog_drop_cause_names[] = {
    "UNSPECIFIED",
    "RETRANSMISSION_TIMEOUT",
-   "TRIPLE_DUPLICATE_ACKS"
+   "TRIPLE_DUPLICATE_ACKS",
+   "ECN"
 };
 
 struct tcplog_extra_data {
