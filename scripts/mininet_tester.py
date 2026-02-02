@@ -27,6 +27,7 @@ arg_parser.add_argument("-s", "--size", type=int, help="Maximum size of upload (
 arg_parser.add_argument("-q", "--queue-size", type=int, help="Max queue size of switch.", default=100)
 arg_parser.add_argument("-p", "--pcap", action="store_true", help="Capture pcap as well as tcplog.")
 arg_parser.add_argument("-n", "--host-count", type=int, help="Number of hosts to test", default=10)
+arg_parser.add_argument("-v", "--verbose", action="store_true", help="Print all subprocess output to stdout (default is just errors). Output will interleave and be messy.")
 
 args = arg_parser.parse_args()
 
@@ -52,35 +53,35 @@ class SingleSwitchTopo( Topo ):
 def main():
     topo = SingleSwitchTopo(k = args.host_count)
 
-    net = Mininet(topo=topo, link=TCLink, cleanup=True)
+    subprocess.Popen(["mn", "-c"], stdout=subprocess.DEVNULL, stderr=subprocess.PIPE).wait() # force cleanup, setting cleanup=True doesn't always work
+    net = Mininet(topo=topo, link=TCLink) 
     net.start()
 
     # setup environment
-
     tempdir = tempfile.gettempdir()
 
-    make_proc = subprocess.Popen(["make", "install"], stdout=stdout, stderr=stdout)
-    make_proc.wait()
+    proc_stdout = stdout if args.verbose else subprocess.DEVNULL
+    proc_stderr = stdout if args.verbose else subprocess.PIPE
 
-    dd_proc = subprocess.Popen(["dd", "if=/dev/urandom", f"of={tempdir}/random", "bs=1M", f"count={args.size}", "iflag=fullblock"], stdout=stdout, stderr=stdout)
-    dd_proc.wait()
+    subprocess.Popen(["make", "install"], stdout=proc_stdout, stderr=proc_stderr).wait()
+
+    subprocess.Popen(["dd", "if=/dev/urandom", f"of={tempdir}/random", "bs=1M", f"count={args.size}", "iflag=fullblock"], stdout=proc_stdout, stderr=proc_stderr).wait()
 
     # run capture
-    capture_proc = subprocess.Popen(["python3", "scripts/capture_utility.py", "-o", args.output], stdout=stdout, stderr=stdout) # port numbers won't align as tcplog is at kernel level
+    capture_proc = subprocess.Popen(["python3", "scripts/capture_utility.py", "-o", args.output], stdout=proc_stdout, stderr=proc_stderr) # port numbers won't align as tcplog is at kernel level
 
     if args.pcap:
-        pcap_proc = subprocess.Popen(["bash", "-c", f"sudo tcpdump -i any -w {args.output}.pcap"], stdout=stdout, stderr=stdout)
+        subprocess.Popen(["bash", "-c", f"sudo tcpdump -i any -w {args.output}.pcap"], stdout=proc_stdout, stderr=proc_stderr)
 
     for host_id in random.sample(host_ids, k=len(host_ids)):
         host = net.get(host_id)
 
         other_host = net.get(random.choice([h for h in host_ids if h != host_id]))
 
-        server_proc = host.popen(["python3", "-m", "http.server", "4444", "-d", tempdir], stdout=stdout, stderr=stdout)
+        server_proc = host.popen(["python3", "-m", "http.server", "4444", "-d", tempdir], stdout=proc_stdout, stderr=proc_stderr)
         curl_proc = host.popen(["curl", "-v", "--http1.0", "--no-keepalive", 
                                 "--retry", "10", "--retry-all-errors", f"http://{other_host.IP()}:4444/random", 
-                                "-o", "/dev/null"], 
-                                stdout=stdout, stderr=stdout)
+                                "-o", "/dev/null"], stdout=proc_stdout, stderr=proc_stderr)
 
     time.sleep(args.duration)
     capture_proc.send_signal(signal.SIGINT)
