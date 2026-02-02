@@ -12,6 +12,7 @@ import os
 import signal
 from sys import stdout
 import subprocess
+import random
 
 arg_parser = argparse.ArgumentParser(
                     prog='mininet_tester.py',
@@ -53,7 +54,7 @@ def main():
     net = Mininet(topo=topo, link=TCLink, cleanup=True)
     net.start()
 
-    h1, h2 = net.get('h1', 'h2')
+    # setup environment
 
     tempdir = tempfile.gettempdir()
 
@@ -63,14 +64,22 @@ def main():
     dd_proc = subprocess.Popen(["dd", "if=/dev/urandom", f"of={tempdir}/random", "bs=1M", f"count={args.size}", "iflag=fullblock"], stdout=stdout, stderr=stdout)
     dd_proc.wait()
 
-    server_proc = h1.popen(["python3", "-m", "http.server", "4444", "-d", tempdir], stdout=stdout, stderr=stdout)
+    # run capture
+    capture_proc = subprocess.Popen(["python3", "scripts/capture_utility.py", "-o", args.output], stdout=stdout, stderr=stdout) # port numbers won't align as tcplog is at kernel level
 
-    capture_proc = h1.popen(["python3", "scripts/capture_utility.py", "-o", args.output], stdout=stdout, stderr=stdout) # port numbers won't align as tcplog is at kernel level
-    
     if args.pcap:
-        pcap_proc = h1.popen(["bash", "-c", f"sudo tcpdump -i any -w {args.output}.pcap port 4444"], stdout=stdout, stderr=stdout)
+        pcap_proc = subprocess.Popen(["bash", "-c", f"sudo tcpdump -i any -w {args.output}.pcap"], stdout=stdout, stderr=stdout)
 
-    curl_proc = h2.popen(["curl", "-v", "--http1.0", "--no-keepalive", "--retry", "10", "--retry-all-errors", f"http://{h1.IP()}:4444/random", "-o", "/dev/null"], stdout=stdout, stderr=stdout)
+    for host_id in random.sample(host_ids, k=len(host_ids)):
+        host = net.get(host_id)
+
+        other_host = net.get(random.choice([h for h in host_ids if h != host_id]))
+
+        server_proc = host.popen(["python3", "-m", "http.server", "4444", "-d", tempdir], stdout=stdout, stderr=stdout)
+        curl_proc = host.popen(["curl", "-v", "--http1.0", "--no-keepalive", 
+                                "--retry", "10", "--retry-all-errors", f"http://{other_host.IP()}:4444/random", 
+                                "-o", "/dev/null"], 
+                                stdout=stdout, stderr=stdout)
 
     time.sleep(args.duration)
     capture_proc.send_signal(signal.SIGINT)
