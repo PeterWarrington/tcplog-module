@@ -39,7 +39,7 @@ class TcplogVisualiser:
         self.get_time = ms_from_start
         self.time_label = "Time"
         if self.args.timestamp_display:
-            self.get_time = self.tz_time
+            self.get_time = self._tz_time
         else:
             self.time_label = "Time (ms since start)"
 
@@ -84,13 +84,14 @@ class TcplogVisualiser:
         self.tk_root = tk.Tk()
         self.tk_root.title("TCPLog Visualisation Utility")
 
-        # root.tk.call("::tk::unsupported::MacWindowStyle", "appearance", root._w, "aqua") # Force mac light mode
+        if self.args.force_light:
+            self.tk_root.tk.call("::tk::unsupported::MacWindowStyle", "appearance", self.tk_root._w, "aqua") # Force mac light mode
         self.is_dark = bool(self.tk_root.tk.call("tk::unsupported::MacWindowStyle", "isdark", self.tk_root._w))
 
         if self.is_dark:
             self.mpl_style = './scripts/styles/mac-dark.mplstyle'
         else:
-            self.mpl_style = "ggplot"
+            self.mpl_style = './scripts/styles/light.mplstyle'
 
         # Set up event detail (json) display
         self.event_detail = tk.Text(self.tk_root, height=15, borderwidth=1, relief="solid")
@@ -191,7 +192,7 @@ class TcplogVisualiser:
         num_data = [] # data of numeric type only for numpy
         for i, e in enumerate(self.data):
             # determine if should filter out this item
-            if self.is_filtered_out(e, filter_terms):
+            if self.is_filtered_out(e, filter_terms) or self.get_time(e) < 0:
                 continue
 
             # append data
@@ -250,8 +251,10 @@ class TcplogVisualiser:
             ax1.yaxis.set_major_locator(plticker.MaxNLocator(20))
 
             example_congestion_line = None
-            for x in self.data_matrix[self.data_matrix[:, self.COLUMNS["is_loss"]] != 0][:, self.COLUMNS["time"]]:
-                example_congestion_line = plt.axvline(x, color="#F00")
+            loss_matrix = self.data_matrix[self.data_matrix[:, self.COLUMNS["is_loss"]] != 0]
+            for x in loss_matrix:
+                example_congestion_line = plt.axvline(x[0], color="#F00", linestyle="-.", zorder=20)
+                plt.plot(x[0], x[1], marker="x", color="#F00", zorder=21, markersize=9) 
 
             ax1.legend([*ax1.lines[:2], example_congestion_line, self.example_select_line], [*[l.get_label() for l in ax1.lines[:2]], "Congestion event", "Selected event"],
                         loc='upper right')
@@ -299,7 +302,7 @@ class TcplogVisualiser:
             html_file = html_file if html_file is not None else os.path.join(tmp_dir, "tcplog_visualiser_output.html")
             img_path = os.path.join(tmp_dir, "tcplog_visualiser_output.svg")
 
-            temp_fig = self.make_plot("ggplot")
+            temp_fig = self.make_plot('./scripts/styles/light.mplstyle')
             temp_fig.savefig(img_path)
 
             # convert image to base64 to embed in html
@@ -410,6 +413,7 @@ def parse_args():
     arg_parser.add_argument("--rtt", help="Display rtt rather than ssthresh.", action='store_true')
     arg_parser.add_argument("--html", type=str, required=False, help="Output printable HTML output to filename without GUI display.")
     arg_parser.add_argument("--csv", type=str, required=False, help="Output data to a CSV file to filename without GUI display.")
+    arg_parser.add_argument("--force-light", help="Force light mode style on MacOS.", action='store_true')
     return dict(arg_parser.parse_args()._get_kwargs())
 
 if __name__ == '__main__':

@@ -1,0 +1,29 @@
+# based on https://github.com/mckinsey/qbstyles/blob/08fbd2361659d405fd0204aebe5ed8549cbcea25/qbstyles/styles/qb-dark.mplstyle
+# Copyright 2018-2019 QuantumBlack Visual Analytics Limited
+# Apache License V2
+
+### FONT
+text.color : black
+
+### AXES
+axes.facecolor      : ffffff   # axes background color
+axes.edgecolor      : 1e1e1e   # axes edge color
+axes.labelcolor     : 1e1e1e
+
+### TICKS
+xtick.color          : 1e1e1e      # color of the tick labels
+ytick.color          : 1e1e1e      # color of the tick labels
+
+### GRIDS
+grid.color       :   FFFFFF   # grid color
+
+### Legend
+legend.facecolor     : FFFFFF   # legend background color (when 'inherit' uses axes.facecolor)
+legend.edgecolor : 1e1e1e # legend edge color (when 'inherit' uses axes.edgecolor)
+
+### FIGURE
+#TODO: notebook ignores this
+figure.facecolor : FFFFFF    # figure facecolor
+savefig.facecolor : FFFFFF    # figure facecolor
+
+axes.prop_cycle    : cycler('color', ["00BCD4", "FFEB3B", "607D8B"]) # colours from https://m1.material.io/style/color.html
