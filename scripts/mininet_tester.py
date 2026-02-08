@@ -18,45 +18,50 @@ import json
 
 import capture_utility
 
-arg_parser = argparse.ArgumentParser(
-                    prog='mininet_tester.py',
-                    description='Collect test TCPLog data using Mininet.',
-                    epilog='TCPLog Mininet Testing Utility (C) Peter Warrington 2026')
-arg_parser.add_argument("-b", "--bandwidth", type=float, help="Bandwidth of host link (Megabits per second).", default=100)
-arg_parser.add_argument("-d", "--delay", type=float, help="Delay in milliseconds.", default=50)
-arg_parser.add_argument("-l", "--loss", type=float, help="Loss as percentage.", default=0.1)
-arg_parser.add_argument("-o", "--output", type=str, help="File to write test log to.", required=True)
-arg_parser.add_argument("-t", "--duration", type=float, help="Length of time in which to test in seconds.", default=10)
-arg_parser.add_argument("-s", "--size", type=int, help="Maximum size of upload (mb).", default=512)
-arg_parser.add_argument("-q", "--queue-size", type=int, help="Max queue size of switch.")
-arg_parser.add_argument("-p", "--pcap", action="store_true", help="Capture pcap as well as tcplog.")
-arg_parser.add_argument("-n", "--host-count", type=int, help="Number of hosts to test", default=10)
-arg_parser.add_argument("-v", "--verbose", action="store_true", help="Print all subprocess output to stdout (default is just errors). Output will interleave and be messy.")
+# Bandwidth-Delay product, converted to packet units
+def get_default_queue_size(args):
+    return ((args.bandwidth*1e6) / (1500*8)) * (args.delay / 1e3)
 
-args = arg_parser.parse_args()
-if args.queue_size is None:
-    args.queue_size = ((args.bandwidth*1e6) / (1500*8)) * (args.delay / 1e3) # Bandwidth-Delay product, converted to packet units
+def _get_args():
+    arg_parser = argparse.ArgumentParser(
+                        prog='mininet_tester.py',
+                        description='Collect test TCPLog data using Mininet.',
+                        epilog='TCPLog Mininet Testing Utility (C) Peter Warrington 2026')
+    arg_parser.add_argument("-b", "--bandwidth", type=float, help="Bandwidth of host link (Megabits per second).", default=100)
+    arg_parser.add_argument("-d", "--delay", type=float, help="Delay in milliseconds.", default=50)
+    arg_parser.add_argument("-l", "--loss", type=float, help="Loss as percentage.", default=0.1)
+    arg_parser.add_argument("-o", "--output", type=str, help="File to write test log to.", required=True)
+    arg_parser.add_argument("-t", "--duration", type=float, help="Length of time in which to test in seconds.", default=10)
+    arg_parser.add_argument("-s", "--size", type=int, help="Maximum size of upload (mb).", default=512)
+    arg_parser.add_argument("-q", "--queue-size", type=int, help="Max queue size of switch.")
+    arg_parser.add_argument("-p", "--pcap", action="store_true", help="Capture pcap as well as tcplog.")
+    arg_parser.add_argument("-n", "--host-count", type=int, help="Number of hosts to test", default=10)
+    arg_parser.add_argument("-v", "--verbose", action="store_true", help="Print all subprocess output to stdout (default is just errors). Output will interleave and be messy.")
 
-host_ids = []
+    args = arg_parser.parse_args()
+    if args.queue_size is None:
+        args.queue_size = get_default_queue_size(args)
+    return args
 
-class SingleSwitchTopo( Topo ):
-    "Single switch connected to k hosts."
+def run(args):
+    host_ids = []
 
-    def build( self, k=2, **_opts):
-        "k: number of hosts"
-        self.k = k
-        switch1 = self.addSwitch('s1')
-        switch2 = self.addSwitch('s2')
-        self.addLink(switch1, switch2,  bw=args.bandwidth, delay=f"{args.delay}ms", loss=args.loss, max_queue_size=args.queue_size)
-        for h in range(1, k+1):
-            host_id = 'h%s' % h
-            host_ids.append(host_id)
-            host = self.addHost(host_id)
-            switch = switch1 if h < (k+1) / 2 else switch2
-            self.addLink( host, switch, bw=args.bandwidth, delay=f"{args.delay}ms", loss=args.loss, max_queue_size=args.queue_size)
+    class SingleSwitchTopo( Topo ):
+        "Single switch connected to k hosts."
 
+        def build( self, k=2, **_opts):
+            "k: number of hosts"
+            self.k = k
+            switch1 = self.addSwitch('s1')
+            switch2 = self.addSwitch('s2')
+            self.addLink(switch1, switch2,  bw=args.bandwidth, delay=f"{args.delay}ms", loss=args.loss, max_queue_size=args.queue_size)
+            for h in range(1, k+1):
+                host_id = 'h%s' % h
+                host_ids.append(host_id)
+                host = self.addHost(host_id)
+                switch = switch1 if h < (k+1) / 2 else switch2
+                self.addLink( host, switch, bw=args.bandwidth, delay=f"{args.delay}ms", loss=args.loss, max_queue_size=args.queue_size)
 
-def main():
     topo = SingleSwitchTopo(k = args.host_count)
 
     subprocess.Popen(["mn", "-c"], stdout=subprocess.DEVNULL, stderr=subprocess.PIPE).wait() # force cleanup, setting cleanup=True doesn't always work
@@ -119,8 +124,12 @@ def main():
         "file_name": args.output
     })
 
-    with open(args.output, "w") as f:
-        f.write(json.dumps(log_obj, indent=4))
+    return log_obj
 
 if __name__ == '__main__':
-    main()
+    args = _get_args()
+    log_obj = run(args)
+
+    if args.output is not None:
+        with open(args.output, "w") as f:
+            f.write(json.dumps(log_obj, indent=4))
