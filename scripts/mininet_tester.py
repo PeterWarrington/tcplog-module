@@ -22,18 +22,20 @@ arg_parser = argparse.ArgumentParser(
                     prog='mininet_tester.py',
                     description='Collect test TCPLog data using Mininet.',
                     epilog='TCPLog Mininet Testing Utility (C) Peter Warrington 2026')
-arg_parser.add_argument("-b", "--bandwidth", type=float, help="Bandwidth of host link.", default=100)
+arg_parser.add_argument("-b", "--bandwidth", type=float, help="Bandwidth of host link (Megabits per second).", default=100)
 arg_parser.add_argument("-d", "--delay", type=float, help="Delay in milliseconds.", default=50)
 arg_parser.add_argument("-l", "--loss", type=float, help="Loss as percentage.", default=0.1)
 arg_parser.add_argument("-o", "--output", type=str, help="File to write test log to.", required=True)
 arg_parser.add_argument("-t", "--duration", type=float, help="Length of time in which to test in seconds.", default=10)
 arg_parser.add_argument("-s", "--size", type=int, help="Maximum size of upload (mb).", default=512)
-arg_parser.add_argument("-q", "--queue-size", type=int, help="Max queue size of switch.", default=100)
+arg_parser.add_argument("-q", "--queue-size", type=int, help="Max queue size of switch.")
 arg_parser.add_argument("-p", "--pcap", action="store_true", help="Capture pcap as well as tcplog.")
 arg_parser.add_argument("-n", "--host-count", type=int, help="Number of hosts to test", default=10)
 arg_parser.add_argument("-v", "--verbose", action="store_true", help="Print all subprocess output to stdout (default is just errors). Output will interleave and be messy.")
 
 args = arg_parser.parse_args()
+if args.queue_size is None:
+    args.queue_size = ((args.bandwidth*1e6) / (1500*8)) * (args.delay / 1e3) # Bandwidth-Delay product, converted to packet units
 
 host_ids = []
 
