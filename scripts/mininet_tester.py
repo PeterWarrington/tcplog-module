@@ -110,7 +110,7 @@ def main():
         "environment_type": "test",
         "test_environment": "mininet",
         "environment_vars": {
-            "rtt": args.delay,
+            "delay": args.delay,
             "bandwith": args.bandwidth,
             "queue_size": args.queue_size
         },
