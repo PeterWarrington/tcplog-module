@@ -118,7 +118,6 @@ void tcplog_log(const char *msg)
     tcplog_entry_count = tcplog_entry_count + 1;
 
     u64 current_time = ktime_get_ns();
-    u64 time_since_last_read = current_time - tcplog_last_read_time;
 
     tcplog_last_read_index = tcplog_read_index;
 
@@ -487,7 +486,7 @@ static u32 log_get_ssthresh(struct sock *sk) {
 }
 
 static u32 log_get_rtt(struct sock *sk) {
-    return tcp_sk(sk)->srtt_us;
+    return tcp_sk(sk)->rack.rtt_us;
 }
 
 static char* log_ip_to_str(__be32 skc_addr) {
