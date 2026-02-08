@@ -22,21 +22,39 @@ import capture_utility
 def get_default_queue_size(args):
     return ((args.bandwidth*1e6) / (1500*8)) * (args.delay / 1e3)
 
+def args_init(args={}):
+    args = capture_utility.dotdict(args)
+    args = capture_utility.dotdict({
+        "bandwidth": 100 if args.bandwidth is None else args.bandwidth,
+        "delay": 50 if args.delay is None else args.delay,
+        "loss": 0.1 if args.loss is None else args.loss,
+        "output": None,
+        "duration": 10 if args.duration is None else args.duration,
+        "size": 512 if args.size is None else args.size,
+        "pcap": False if args.pcap is None else args.pcap,
+        "host_count": 10 if args.host_count is None else args.host_count,
+        "verbose": False if args.verbose is None else args.verbose
+    })
+    args["queue_size"] = get_default_queue_size(args)
+    return args
+
 def _get_args():
+    D = args_init()
+
     arg_parser = argparse.ArgumentParser(
                         prog='mininet_tester.py',
                         description='Collect test TCPLog data using Mininet.',
                         epilog='TCPLog Mininet Testing Utility (C) Peter Warrington 2026')
-    arg_parser.add_argument("-b", "--bandwidth", type=float, help="Bandwidth of host link (Megabits per second).", default=100)
-    arg_parser.add_argument("-d", "--delay", type=float, help="Delay in milliseconds.", default=50)
-    arg_parser.add_argument("-l", "--loss", type=float, help="Loss as percentage.", default=0.1)
+    arg_parser.add_argument("-b", "--bandwidth", type=float, help="Bandwidth of host link (Megabits per second).", default=D["bandwidth"])
+    arg_parser.add_argument("-d", "--delay", type=float, help="Delay in milliseconds.", default=D["delay"])
+    arg_parser.add_argument("-l", "--loss", type=float, help="Loss as percentage.", default=D["loss"])
     arg_parser.add_argument("-o", "--output", type=str, help="File to write test log to.", required=True)
-    arg_parser.add_argument("-t", "--duration", type=float, help="Length of time in which to test in seconds.", default=10)
-    arg_parser.add_argument("-s", "--size", type=int, help="Maximum size of upload (mb).", default=512)
+    arg_parser.add_argument("-t", "--duration", type=float, help="Length of time in which to test in seconds.", default=D["duration"])
+    arg_parser.add_argument("-s", "--size", type=int, help="Maximum size of upload (mb).", default=D["size"])
     arg_parser.add_argument("-q", "--queue-size", type=int, help="Max queue size of switch.")
-    arg_parser.add_argument("-p", "--pcap", action="store_true", help="Capture pcap as well as tcplog.")
-    arg_parser.add_argument("-n", "--host-count", type=int, help="Number of hosts to test", default=10)
-    arg_parser.add_argument("-v", "--verbose", action="store_true", help="Print all subprocess output to stdout (default is just errors). Output will interleave and be messy.")
+    arg_parser.add_argument("-p", "--pcap", action="store_true", help="Capture pcap as well as tcplog.", default=D["pcap"])
+    arg_parser.add_argument("-n", "--host-count", type=int, help="Number of hosts to test", default=D["host_count"])
+    arg_parser.add_argument("-v", "--verbose", action="store_true", help="Print all subprocess output to stdout (default is just errors). Output will interleave and be messy.", default=D["verbose"])
 
     args = arg_parser.parse_args()
     if args.queue_size is None:
