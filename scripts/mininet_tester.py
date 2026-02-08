@@ -13,6 +13,10 @@ import signal
 from sys import stdout
 import subprocess
 import random
+import threading
+import json
+
+import capture_utility
 
 arg_parser = argparse.ArgumentParser(
                     prog='mininet_tester.py',
@@ -68,7 +72,19 @@ def main():
     subprocess.Popen(["dd", "if=/dev/urandom", f"of={tempdir}/random", "bs=1M", f"count={args.size}", "iflag=fullblock"], stdout=proc_stdout, stderr=proc_stderr).wait()
 
     # run capture
-    capture_proc = subprocess.Popen(["python3", "scripts/capture_utility.py", "-o", args.output], stdout=stdout, stderr=proc_stderr) # port numbers won't align as tcplog is at kernel level
+    capture_stop_flag = threading.Event()
+    capture_out = {"result": None}
+    capture_proc = threading.Thread(
+        target=capture_utility.collect_events, 
+        args=(
+            capture_utility.dotdict(
+                {"quiet": True}
+            ),
+            capture_stop_flag,
+            capture_out
+        )
+    )
+    capture_proc.start()
 
     if args.pcap:
         subprocess.Popen(["bash", "-c", f"sudo tcpdump -i any -w {args.output}.pcap"], stdout=proc_stdout, stderr=proc_stderr)
@@ -84,10 +100,25 @@ def main():
                                 "-o", "/dev/null"], stdout=proc_stdout, stderr=proc_stderr)
 
     time.sleep(args.duration)
-    capture_proc.send_signal(signal.SIGINT)
-    capture_proc.wait()
+    capture_stop_flag.set()
+    capture_proc.join()
 
     net.stop()
+
+    events = capture_out["result"]
+    log_obj = capture_utility.events_wrap(events, {
+        "environment_type": "test",
+        "test_environment": "mininet",
+        "environment_vars": {
+            "rtt": args.delay,
+            "bandwith": args.bandwidth,
+            "queue_size": args.queue_size
+        },
+        "file_name": args.output
+    })
+
+    with open(args.output, "w") as f:
+        f.write(json.dumps(log_obj, indent=4))
 
 if __name__ == '__main__':
     main()

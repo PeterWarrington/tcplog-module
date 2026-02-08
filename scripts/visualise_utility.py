@@ -29,10 +29,22 @@ class TcplogVisualiser:
         is_module = __name__ != '__main__'
         self.args = self.dotdict(kargs)
         self.file = open(self.args.input)
-        self.data = json.loads(self.file.read())
+
+        self.full_data = json.loads(self.file.read())
+        if isinstance(self.full_data, list):
+            self.event_data = self.full_data
+            self.has_trace_metadata = False
+        else:
+            self.has_trace_metadata = True
+            
+            if len(self.full_data["traces"]) == 1:
+                self.event_data = self.full_data["traces"][0]["events"]
+            else:
+                raise ValueError(f"Expected 1 item in 'traces' field, got {len(self.full_data["traces"])}")
+            
         self.last_modified = time.ctime(os.path.getmtime(self.file.name))
 
-        self.start_time = self.data[0]["time"]
+        self.start_time = self.event_data[0]["time"]
         def ms_from_start(e):
             return e["time"] - self.start_time
 
@@ -62,14 +74,14 @@ class TcplogVisualiser:
         return datetime.fromtimestamp(self._to_ms(e["time"]))
 
     def event_select_index(self, i):
-        event_json = json.dumps(self.data[i], indent=4)
+        event_json = json.dumps(self.event_data[i], indent=4)
         self.event_detail.delete(1.0, tk.END)
         self.event_detail.insert(tk.END, event_json)
 
         if self.last_select_line is not None:
             self.last_select_line.remove()
 
-        self.last_select_line = plt.axvline(self.get_time(self.data[i]), color="#0095FF", linestyle="-.")
+        self.last_select_line = plt.axvline(self.get_time(self.event_data[i]), color="#0095FF", linestyle="-.")
         self.canvas.draw_idle()
 
     def event_select_list(self, *args):
@@ -190,7 +202,7 @@ class TcplogVisualiser:
         self.eventv.delete(*self.eventv.get_children())
 
         num_data = [] # data of numeric type only for numpy
-        for i, e in enumerate(self.data):
+        for i, e in enumerate(self.event_data):
             # determine if should filter out this item
             if self.is_filtered_out(e, filter_terms) or self.get_time(e) < 0:
                 continue
@@ -209,7 +221,7 @@ class TcplogVisualiser:
                 extra_text),
                 tags=(("congestion") if e["name"] == "tcplog:packet_dropped" else ()))
 
-        self.data_matrix = np.array(num_data)
+        self.event_data_matrix = np.array(num_data)
 
         if self.tk_filter_on_graph_bool.get():
             self.canvas = self.draw_plot()
@@ -227,7 +239,7 @@ class TcplogVisualiser:
             fig, ax1 = plt.subplots()
             fig.set_layout_engine("compressed")
 
-            ax1.plot(self.data_matrix[:,self.COLUMNS["time"]], self.data_matrix[:,self.COLUMNS["cwnd"]],
+            ax1.plot(self.event_data_matrix[:,self.COLUMNS["time"]], self.event_data_matrix[:,self.COLUMNS["cwnd"]],
                 marker = '.', label="cwnd", zorder=10)
 
             ax1.set_xlabel(self.time_label)
@@ -239,19 +251,19 @@ class TcplogVisualiser:
                 ax1.xaxis.set_minor_locator(plticker.AutoMinorLocator(8))
                 ax1.xaxis.set_major_locator(plticker.MaxNLocator(20))
 
-            ssthresh_points = self.data_matrix[:, self.COLUMNS["ssthresh"]]
+            ssthresh_points = self.event_data_matrix[:, self.COLUMNS["ssthresh"]]
 
-            ax1.plot(self.data_matrix[:,self.COLUMNS["time"]], ssthresh_points, marker = '.', label="ssthresh")
+            ax1.plot(self.event_data_matrix[:,self.COLUMNS["time"]], ssthresh_points, marker = '.', label="ssthresh")
 
             if self.args.rtt:
-                rtt_points = self.data_matrix[:, self.COLUMNS["rtt"]]
-                ax1.plot(self.data_matrix[:,self.COLUMNS["time"]], rtt_points, marker = '.', label="rtt (miliseconds)")
+                rtt_points = self.event_data_matrix[:, self.COLUMNS["rtt"]]
+                ax1.plot(self.event_data_matrix[:,self.COLUMNS["time"]], rtt_points, marker = '.', label="rtt (miliseconds)")
 
             ax1.yaxis.set_minor_locator(plticker.AutoMinorLocator(8))
             ax1.yaxis.set_major_locator(plticker.MaxNLocator(20))
 
             example_congestion_line = None
-            loss_matrix = self.data_matrix[self.data_matrix[:, self.COLUMNS["is_loss"]] != 0]
+            loss_matrix = self.event_data_matrix[self.event_data_matrix[:, self.COLUMNS["is_loss"]] != 0]
             for x in loss_matrix:
                 example_congestion_line = plt.axvline(x[0], color="#F00", linestyle="-.", zorder=20)
                 plt.plot(x[0], x[1], marker="x", color="#F00", zorder=21, markersize=9) 
@@ -269,12 +281,12 @@ class TcplogVisualiser:
 
         def event_select_mpl(event):
             mouse_x = event.xdata
-            nearest = np.abs(self.data_matrix[:, self.COLUMNS["time"]] - mouse_x).argmin()
+            nearest = np.abs(self.event_data_matrix[:, self.COLUMNS["time"]] - mouse_x).argmin()
 
             eventv_entry = self.eventv.get_children()[nearest]
             self.eventv.focus(eventv_entry)
             self.eventv.selection_set(eventv_entry) # this calls event_select_i
-            self.eventv.yview_moveto(float(nearest) / float(self.data_matrix.shape[0]))
+            self.eventv.yview_moveto(float(nearest) / float(self.event_data_matrix.shape[0]))
 
         plotFig.set_picker(True)
 
