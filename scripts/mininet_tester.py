@@ -111,7 +111,7 @@ def main():
         "test_environment": "mininet",
         "environment_vars": {
             "delay": args.delay,
-            "bandwith": args.bandwidth,
+            "bandwidth": args.bandwidth,
             "queue_size": args.queue_size
         },
         "file_name": args.output
