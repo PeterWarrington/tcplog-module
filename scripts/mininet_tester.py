@@ -82,7 +82,7 @@ def run(args):
 
     topo = SingleSwitchTopo(k = args.host_count)
 
-    subprocess.Popen(["mn", "-c"], stdout=subprocess.DEVNULL, stderr=subprocess.PIPE).wait() # force cleanup, setting cleanup=True doesn't always work
+    subprocess.run(["mn", "-c"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True) # force cleanup, setting cleanup=True doesn't always work
     net = Mininet(topo=topo, link=TCLink) 
     net.start()
 
@@ -90,11 +90,11 @@ def run(args):
     tempdir = tempfile.gettempdir()
 
     proc_stdout = stdout if args.verbose else subprocess.DEVNULL
-    proc_stderr = stdout if args.verbose else subprocess.PIPE
+    proc_stderr = stdout if args.verbose else subprocess.DEVNULL
 
-    subprocess.Popen(["make", "install"], stdout=proc_stdout, stderr=proc_stderr).wait()
+    subprocess.run(["make", "install"], stdout=proc_stdout, stderr=proc_stderr, check=True)
 
-    subprocess.Popen(["dd", "if=/dev/urandom", f"of={tempdir}/random", "bs=1M", f"count={args.size}", "iflag=fullblock"], stdout=proc_stdout, stderr=proc_stderr).wait()
+    subprocess.run(["dd", "if=/dev/urandom", f"of={tempdir}/random", "bs=1M", f"count={args.size}", "iflag=fullblock"], stdout=proc_stdout, stderr=proc_stderr, check=True)
 
     # run capture
     capture_stop_flag = threading.Event()
@@ -114,6 +114,8 @@ def run(args):
     if args.pcap:
         subprocess.Popen(["bash", "-c", f"sudo tcpdump -i any -w {args.output}.pcap"], stdout=proc_stdout, stderr=proc_stderr)
 
+    host_procs = []
+
     for host_id in random.sample(host_ids, k=len(host_ids)):
         host = net.get(host_id)
 
@@ -124,9 +126,17 @@ def run(args):
                                 "--retry", "10", "--retry-all-errors", f"http://{other_host.IP()}:4444/random", 
                                 "-o", "/dev/null"], stdout=proc_stdout, stderr=proc_stderr)
 
+        host_procs.append(server_proc)
+        host_procs.append(curl_proc)
+
     time.sleep(args.duration)
     capture_stop_flag.set()
     capture_proc.join()
+
+    # Ensure any subprocesses created by host.popen are killed
+    for p in host_procs:
+        p.kill()
+        p.wait()
 
     net.stop()
 
