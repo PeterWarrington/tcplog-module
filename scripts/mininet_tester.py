@@ -62,6 +62,7 @@ def _get_args():
     return args
 
 def run(args):
+    args = args_init(args)
     host_ids = []
 
     class SingleSwitchTopo( Topo ):
