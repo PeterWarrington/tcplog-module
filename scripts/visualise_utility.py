@@ -16,18 +16,12 @@ import webbrowser
 import os
 import time
 import base64
+from capture_utility import dotdict
 
 class TcplogVisualiser:
-    # https://stackoverflow.com/a/23689767 CC BY-SA 4.0
-    class dotdict(dict):
-        """dot.notation access to dictionary attributes"""
-        __getattr__ = dict.get
-        __setattr__ = dict.__setitem__
-        __delattr__ = dict.__delitem__
-
     def __init__(self, **kargs):
         is_module = __name__ != '__main__'
-        self.args = self.dotdict(kargs)
+        self.args = dotdict(kargs)
         self.file = open(self.args.input)
 
         self.full_data = json.loads(self.file.read())
