@@ -64,7 +64,7 @@ def _get_args():
         args.queue_size = get_default_queue_size(args)
     return args
 
-def run(args):
+def run(args, wait_func=None):
     args = args_init(args)
 
     class SingleSwitchTopo( Topo ):
@@ -84,7 +84,7 @@ def run(args):
                 host_id = 'h%s' % h
                 host = self.addHost(host_id)
                 self.host_ids[switch_n].append(host_id)
-                self.addLink( host, switch, bw=args.bandwidth, delay=f"{args.delay}ms", loss=args.loss, max_queue_size=args.queue_size)
+                self.addLink( host, switch, bw=args.bandwidth, delay=f"0ms", loss=args.loss, max_queue_size=args.queue_size)
 
     topo = SingleSwitchTopo(k = args.host_count)
 
@@ -140,7 +140,10 @@ def run(args):
             host_procs.append(server_proc)
             host_procs.append(curl_proc)
 
-    time.sleep(args.duration)
+    if wait_func is not None:
+        wait_func(args.duration)
+    else:
+        time.sleep(args.duration)
     capture_stop_flag.set()
     capture_proc.join()
 

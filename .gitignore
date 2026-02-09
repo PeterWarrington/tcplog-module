@@ -14,3 +14,4 @@
 .vscode/vc.db-wal
 *.pcap
 scripts/__pycache__
+automated_test_results/
