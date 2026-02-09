@@ -15,6 +15,7 @@ import subprocess
 import random
 import threading
 import json
+import math
 
 import capture_utility
 
@@ -23,6 +24,8 @@ def get_default_queue_size(args):
     return ((args.bandwidth*1e6) / (1500*8)) * (args.delay / 1e3)
 
 def args_init(args={}):
+    if isinstance(args, argparse.Namespace):
+        args = dict(vars(args))
     args = capture_utility.dotdict(args)
     args = capture_utility.dotdict({
         "bandwidth": 100 if args.bandwidth is None else args.bandwidth,
@@ -63,7 +66,6 @@ def _get_args():
 
 def run(args):
     args = args_init(args)
-    host_ids = []
 
     class SingleSwitchTopo( Topo ):
         "Single switch connected to k hosts."
@@ -73,12 +75,15 @@ def run(args):
             self.k = k
             switch1 = self.addSwitch('s1')
             switch2 = self.addSwitch('s2')
+            switch_count = 2
+            self.host_ids = {k:[] for k in range(1,switch_count+1)}
             self.addLink(switch1, switch2,  bw=args.bandwidth, delay=f"{args.delay}ms", loss=args.loss, max_queue_size=args.queue_size)
             for h in range(1, k+1):
+                switch_n = math.ceil(switch_count * (h / k))
+                switch = [s for s in self.switches() if s == 's%s' % switch_n][0]
                 host_id = 'h%s' % h
-                host_ids.append(host_id)
                 host = self.addHost(host_id)
-                switch = switch1 if h < (k+1) / 2 else switch2
+                self.host_ids[switch_n].append(host_id)
                 self.addLink( host, switch, bw=args.bandwidth, delay=f"{args.delay}ms", loss=args.loss, max_queue_size=args.queue_size)
 
     topo = SingleSwitchTopo(k = args.host_count)
@@ -117,18 +122,23 @@ def run(args):
 
     host_procs = []
 
-    for host_id in random.sample(host_ids, k=len(host_ids)):
-        host = net.get(host_id)
+    switch_n_set = set(topo.host_ids.keys())
+    for switch_n in switch_n_set:
+        other_switch_n = list(switch_n_set - set([switch_n]))[0]
+        switch_host_ids = topo.host_ids[switch_n].copy()
+        other_switch_host_ids = topo.host_ids[other_switch_n].copy()
+        
+        while len(switch_host_ids) > 0:
+            host = net.get(switch_host_ids.pop(0))
+            other_host = net.get(other_switch_host_ids.pop(0))
 
-        other_host = net.get(random.choice([h for h in host_ids if h != host_id]))
+            server_proc = host.popen(["python3", "-m", "http.server", "4444", "-d", tempdir], stdout=proc_stdout, stderr=proc_stderr)
+            curl_proc = host.popen(["curl", "-v", "--http1.0", "--no-keepalive", 
+                                    "--retry", "10", "--retry-all-errors", f"http://{other_host.IP()}:4444/random", 
+                                    "-o", "/dev/null"], stdout=proc_stdout, stderr=proc_stderr)
 
-        server_proc = host.popen(["python3", "-m", "http.server", "4444", "-d", tempdir], stdout=proc_stdout, stderr=proc_stderr)
-        curl_proc = host.popen(["curl", "-v", "--http1.0", "--no-keepalive", 
-                                "--retry", "10", "--retry-all-errors", f"http://{other_host.IP()}:4444/random", 
-                                "-o", "/dev/null"], stdout=proc_stdout, stderr=proc_stderr)
-
-        host_procs.append(server_proc)
-        host_procs.append(curl_proc)
+            host_procs.append(server_proc)
+            host_procs.append(curl_proc)
 
     time.sleep(args.duration)
     capture_stop_flag.set()
