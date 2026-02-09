@@ -75,7 +75,7 @@ class TcplogVisualiser:
         if self.last_select_line is not None:
             self.last_select_line.remove()
 
-        self.last_select_line = plt.axvline(self.get_time(self.event_data[i]), color="#0095FF", linestyle="-.")
+        self.last_select_line = plt.axvline(self.get_time(self.event_data[i]), color="#0095FF", linestyle="dotted", zorder=30)
         self.canvas.draw_idle()
 
     def event_select_list(self, *args):
