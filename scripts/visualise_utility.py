@@ -263,7 +263,7 @@ class TcplogVisualiser:
                 plt.plot(x[0], x[1], marker="x", color="#F00", zorder=21, markersize=9) 
 
             ax1.legend([*ax1.lines[:2], example_congestion_line, self.example_select_line], [*[l.get_label() for l in ax1.lines[:2]], "Congestion event", "Selected event"],
-                        loc='upper right')
+                        loc='upper right', zorder=100)
 
             return fig
 
