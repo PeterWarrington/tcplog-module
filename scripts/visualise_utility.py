@@ -387,9 +387,12 @@ class TcplogVisualiser:
         else:
             with open(csv_file, "w") as f:
                 f.write(csv)
+    
+    def pdf_export(self, pdf_file):
+        self.make_plot('./scripts/styles/light.mplstyle').savefig(pdf_file.name)
 
     def tk_export(self):
-        file = filedialog.asksaveasfile(initialfile="tcplog_output.csv", defaultextension=".csv", filetypes=[("CSV file", "*.csv"), ("HTML file with embedded image", "*.html")])
+        file = filedialog.asksaveasfile(initialfile="tcplog_output.csv", defaultextension=".csv", filetypes=[("CSV file", "*.csv"), ("HTML file with embedded image", "*.html"), ("PDF (graph only)", "*.pdf")])
         if file is None: # user canceled
             return
         extension = file.name.split(".")[-1]
@@ -398,6 +401,8 @@ class TcplogVisualiser:
                 self.csv_export(file)
             elif extension == "html":
                 self.html_export(file)
+            elif extension == "pdf":
+                self.pdf_export(file)
             else:
                 messagebox.showerror(title="Export failed", message="Export failed\n\nSelected filetype cannot be determined.")
         except Exception as e:
@@ -419,6 +424,7 @@ def parse_args():
     arg_parser.add_argument("--rtt", help="Display rtt rather than ssthresh.", action='store_true')
     arg_parser.add_argument("--html", type=str, required=False, help="Output printable HTML output to filename without GUI display.")
     arg_parser.add_argument("--csv", type=str, required=False, help="Output data to a CSV file to filename without GUI display.")
+    arg_parser.add_argument("--pdf", type=str, required=False, help="Output graph to a PDF file without GUI display.")
     arg_parser.add_argument("--force-light", help="Force light mode style on MacOS.", action='store_true')
     return dict(arg_parser.parse_args()._get_kwargs())
 
@@ -429,5 +435,7 @@ if __name__ == '__main__':
         visualiser.html_export(args["html"])
     elif args["csv"]:
         visualiser.csv_export(args["csv"])
+    elif args["pdf"]:
+        visualiser.csv_export(args["pdf"])
     else:
         visualiser.tk_display()
