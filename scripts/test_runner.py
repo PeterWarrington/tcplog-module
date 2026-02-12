@@ -58,6 +58,29 @@ class TestTimeoutRetransmission(unittest.TestCase):
         )]
         self.assertGreater(len(retransmission_events), 0, "Verify retransmission timeout observed with mid-connection delay change")
 
+class TestAggressiveReorder(unittest.TestCase):
+    @classmethod
+    def setUpClass(self):
+        def wait_func(duration):
+            time.sleep(duration*(1/3))
+            os.system(f"tc qdisc change dev s1-eth1 root netem delay 50ms reorder 10% 75%")
+            time.sleep(duration*(1/3))
+            os.system(f"tc qdisc change dev s1-eth1 root netem delay 50ms reorder 0% 0%")
+            time.sleep(duration*(1/3))
+        setup_mininet(self, {"delay": 50, "host_count": 2, "loss": 0}, wait_func=wait_func)
+        with open(f"{out_dir}/test_reorder.json", "w") as f:
+            f.write(json.dumps(self.mininet_results, indent=4))
+    
+    def test_is_dupack(self):
+        dupack_events = [e for e in self.mininet_events if (
+            e["name"] == "tcplog:packet_dropped"
+            and
+            "cause" in e["data"]
+            and
+            e["data"]["cause"] == "TRIPLE_DUPLICATE_ACKS"
+        )]
+        self.assertGreater(len(dupack_events), 0, "Verify Triple-Duplicate-Acks observed with mid-connection reordering")
+
 if __name__ == '__main__':
     if os.getuid() != 0:
         print("Must be ran as root.")
