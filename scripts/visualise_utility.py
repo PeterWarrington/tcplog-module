@@ -264,7 +264,7 @@ class TcplogVisualiser:
 
             leg = ax1.legend([*ax1.lines[:2], example_congestion_line, self.example_select_line], [*[l.get_label() for l in ax1.lines[:2]], "Congestion event", "Selected event"],
                         loc='upper right')
-            leg.zorder(100)
+            leg.set_zorder(100)
 
             return fig
 
