@@ -44,3 +44,7 @@ dmesg:
 mininet:
 	vagrant up
 	vagrant ssh -c "cd tcplog-module && sudo python3 scripts/mininet_tester.py -o log/test-mininet.json"
+
+test:
+	vagrant up
+	vagrant ssh -c "cd tcplog-module && sudo python3 scripts/test_runner.py"

@@ -64,7 +64,7 @@ def _get_args():
         args.queue_size = get_default_queue_size(args)
     return args
 
-def run(args, wait_func=None):
+def run(args, wait_func=None, capture_args={}):
     args = args_init(args)
 
     class SingleSwitchTopo( Topo ):
@@ -109,7 +109,7 @@ def run(args, wait_func=None):
         target=capture_utility.collect_events, 
         args=(
             capture_utility.dotdict(
-                {"quiet": True}
+                {"quiet": True, **capture_args}
             ),
             capture_stop_flag,
             capture_out

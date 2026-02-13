@@ -10,9 +10,9 @@ from datetime import datetime
 
 out_dir = "./automated_test_results"
 
-def setup_mininet(test, mininet_args, wait_func=None):
+def setup_mininet(test, mininet_args, wait_func=None, capture_args={}):
     print("Setup: Running mininet tester...")
-    test.mininet_results = mininet_tester.run(mininet_args, wait_func)
+    test.mininet_results = mininet_tester.run(mininet_args, wait_func, capture_args)
     test.mininet_events = test.mininet_results["traces"][0]["events"]
     test.event_counter = Counter([e["name"] for e in test.mininet_events])
     print("Setup: Mininet tester output gathered.")
@@ -44,7 +44,10 @@ class TestTimeoutRetransmission(unittest.TestCase):
             time.sleep(duration*(1/3))
             os.system(f"tc qdisc change dev s1-eth1 root netem delay 5ms")
             time.sleep(duration*(1/3))
-        setup_mininet(self, {"delay": 5, "host_count": 2}, wait_func=wait_func)
+        setup_mininet(self, 
+                      {"delay": 5, "host_count": 2, "loss": 0}, 
+                      wait_func=wait_func,
+                      capture_args={"source_ip":"10.0.0.1"})
         with open(f"{out_dir}/test_retransmission.json", "w") as f:
             f.write(json.dumps(self.mininet_results, indent=4))
     
@@ -63,11 +66,14 @@ class TestAggressiveReorder(unittest.TestCase):
     def setUpClass(self):
         def wait_func(duration):
             time.sleep(duration*(1/3))
-            os.system(f"tc qdisc change dev s1-eth1 root netem delay 50ms reorder 10% 75%")
+            os.system(f"tc qdisc change dev s1-eth1 root netem delay 50ms reorder 25% 75%")
             time.sleep(duration*(1/3))
             os.system(f"tc qdisc change dev s1-eth1 root netem delay 50ms reorder 0% 0%")
             time.sleep(duration*(1/3))
-        setup_mininet(self, {"delay": 50, "host_count": 2, "loss": 0}, wait_func=wait_func)
+        setup_mininet(self, 
+                      {"delay": 50, "host_count": 2, "loss": 0},
+                      wait_func=wait_func,
+                      capture_args={"source_ip":"10.0.0.1"})
         with open(f"{out_dir}/test_reorder.json", "w") as f:
             f.write(json.dumps(self.mininet_results, indent=4))
     
@@ -80,6 +86,64 @@ class TestAggressiveReorder(unittest.TestCase):
             e["data"]["cause"] == "TRIPLE_DUPLICATE_ACKS"
         )]
         self.assertGreater(len(dupack_events), 0, "Verify Triple-Duplicate-Acks observed with mid-connection reordering")
+
+class TestSuddenLoss(unittest.TestCase):
+    @classmethod
+    def setUpClass(self):
+        def wait_func(duration):
+            time.sleep(duration*(1/3))
+            os.system(f"tc qdisc change dev s1-eth1 root netem loss random 5%")
+            time.sleep(duration*(1/3))
+            os.system(f"tc qdisc change dev s1-eth1 root netem loss random 0%")
+            time.sleep(duration*(1/3))
+        setup_mininet(self, 
+                      {"delay": 50, "host_count": 2, "loss": 0}, 
+                      wait_func=wait_func,
+                      capture_args={"source_ip":"10.0.0.1"})
+        with open(f"{out_dir}/test_sudden_loss.json", "w") as f:
+            f.write(json.dumps(self.mininet_results, indent=4))
+    
+    def test_is_dupack(self):
+        dupack_events = [e for e in self.mininet_events if (
+            e["name"] == "tcplog:packet_dropped"
+            and
+            "cause" in e["data"]
+            and
+            e["data"]["cause"] == "TRIPLE_DUPLICATE_ACKS"
+        )]
+        self.assertGreater(len(dupack_events), 0, "Verify Triple-Duplicate-Acks observed with sudden high loss.")
+
+    def test_is_prr(self):
+        (prr_enter_i, prr_enter_e) = [(i, e) for (i, e) in enumerate(self.mininet_events) if (
+            e["name"] == "tcplog:state_updated"
+            and
+            e["data"]["new"] == "TCP_CA_Recovery"
+            and
+            e["data"]["in_slow_start"] == False
+        )][0]
+        (prr_exit_i, prr_exit_e) = [(i, e) for (i, e) in list(enumerate(self.mininet_events))[prr_enter_i+1:] if (
+            e["name"] == "tcplog:state_updated"
+            and
+            e["data"]["new"] == "TCP_CA_Open"
+            and
+            e["data"]["state_variables"]["cwnd"] == e["data"]["state_variables"]["ssthresh"]
+        )][0]
+        prr_decrease_events = [e for e in self.mininet_events[prr_enter_i+1:prr_exit_i] if (
+            e["name"] == "tcplog:packets_acked"
+        )]
+
+        self.assertEqual(prr_enter_e["data"]["state_variables"]["cwnd"], prr_enter_e["data"]["state_variables"]["prior_cwnd"],
+                         "Verify that prior_cwnd is set to cwnd on prr loss.")
+        self.assertEqual(prr_exit_e["data"]["state_variables"]["cwnd"], prr_exit_e["data"]["state_variables"]["ssthresh"],
+                         "Verify that cwnd is equal to ssthresh at end of prr.")
+        prr_mid_decrease_e = prr_decrease_events[int(len(prr_decrease_events) / 2)]
+        self.assertTrue((prr_mid_decrease_e["data"]["state_variables"]["cwnd"] < prr_enter_e["data"]["state_variables"]["cwnd"]
+                         and
+                         prr_mid_decrease_e["data"]["state_variables"]["cwnd"] > prr_exit_e["data"]["state_variables"]["cwnd"]
+                         ),
+                         "Verify that cwnd decreases during PRR.")
+
+
 
 if __name__ == '__main__':
     if os.getuid() != 0:

@@ -531,6 +531,8 @@ void log_set_state(struct sock *sk, u8 new_state) {
         data.drop_cause = ECN;
     } else if (data.new_state == TCP_CA_Disorder + 1) {
         data.drop_cause = TRIPLE_DUPLICATE_ACKS;
+    } else if (data.new_state == TCP_CA_Loss + 1) {
+        data.drop_cause = RETRANSMISSION_TIMEOUT;
     }
 
     if (data.new_state > TCP_CA_Open + 1)
