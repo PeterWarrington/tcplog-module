@@ -113,8 +113,9 @@ void tcplog_log(const char *msg)
     tcplog_write_index = (tcplog_write_index + 1) % LOG_BUF_ENTRY_COUNT_MAX;
     if (tcplog_write_index == tcplog_read_index)
         tcplog_read_index = (tcplog_read_index + 1) % LOG_BUF_ENTRY_COUNT_MAX;
-    
-    tcplog_entry_count = tcplog_entry_count + 1;
+
+    if (tcplog_entry_count < LOG_BUF_ENTRY_COUNT_MAX)
+        tcplog_entry_count = tcplog_entry_count + 1;
 
     u64 current_time = ktime_get_ns();
 
@@ -313,12 +314,17 @@ static ssize_t tcplog_device_read(struct file *file, char __user *user_buffer, s
     int to_process = entries_available;
     for (int n = 0; n < to_process && total_bytes < requested_bytes; n++) {
         int this_len = tcplog_entry_len[i];
-        size_t will_copy = min_t(size_t, (size_t)this_len, requested_bytes - total_bytes);
-        if (will_copy) {
-            indices[entries_consumed] = i;
-            lengths[entries_consumed] = will_copy;
-            total_bytes += will_copy;
-            entries_consumed++;
+
+        size_t space_left = (requested_bytes > total_bytes) ? (requested_bytes - total_bytes) : 0;
+        if ((size_t)this_len <= space_left) {
+            if (entries_consumed < LOG_BUF_ENTRY_COUNT_MAX) {
+                indices[entries_consumed] = i;
+                lengths[entries_consumed] = this_len;
+                total_bytes += this_len;
+                entries_consumed++;
+            } else {
+                break;
+            }
         }
         i = (i + 1) % LOG_BUF_ENTRY_COUNT_MAX;
         if (i == tcplog_write_index)
@@ -326,7 +332,6 @@ static ssize_t tcplog_device_read(struct file *file, char __user *user_buffer, s
     }
 
     if (entries_consumed == 0) {
-        tcplog_buf_read_ready = false;
         spin_unlock_bh(&tcplog_lock);
         return 0;
     }
@@ -336,7 +341,6 @@ static ssize_t tcplog_device_read(struct file *file, char __user *user_buffer, s
     if (!kbuf) {
         if (DMESG_VERBOSE)
             printk("DEV_TCPLOG: KMALLOC FAILED");
-        tcplog_buf_read_ready = false;
         spin_unlock_bh(&tcplog_lock);
         return -ENOMEM;
     }
@@ -349,6 +353,9 @@ static ssize_t tcplog_device_read(struct file *file, char __user *user_buffer, s
         copied += len;
     }
 
+    int old_read_index = tcplog_read_index;
+    int old_entry_count = tcplog_entry_count;
+
     tcplog_read_index = (tcplog_read_index + entries_consumed) % LOG_BUF_ENTRY_COUNT_MAX;
     tcplog_entry_count = max(0, tcplog_entry_count - entries_consumed);
     tcplog_last_read_time = ktime_get_ns();
@@ -356,10 +363,15 @@ static ssize_t tcplog_device_read(struct file *file, char __user *user_buffer, s
     if (DMESG_VERBOSE)
         printk("DEV_TCPLOG: WRITTEN");
 
-    tcplog_buf_read_ready = false;
+    tcplog_buf_read_ready = (tcplog_entry_count > 0);
     spin_unlock_bh(&tcplog_lock);
 
     if (copy_to_user(user_buffer, kbuf, copied)) {
+        spin_lock_bh(&tcplog_lock);
+        tcplog_read_index = old_read_index;
+        tcplog_entry_count = old_entry_count;
+        tcplog_buf_read_ready = true;
+        spin_unlock_bh(&tcplog_lock);
         kfree(kbuf);
         return -EFAULT;
     }
@@ -533,8 +545,10 @@ void log_set_state(struct sock *sk, u8 new_state) {
         data.drop_cause = RETRANSMISSION_TIMEOUT;
     }
 
-    if (data.new_state > TCP_CA_Open + 1)
+
+    if (data.new_state > TCP_CA_Open + 1) {
         tcplog_log_event(tcplog_event_names[PACKET_DROPPED], sk, &data);
+    }
 
     if (base_ca_ops && base_ca_ops->set_state)
         base_ca_ops->set_state(sk, new_state);
