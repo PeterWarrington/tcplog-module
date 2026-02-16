@@ -82,7 +82,6 @@ static int tcplog_entry_len[LOG_BUF_ENTRY_COUNT_MAX];
 static bool tcplog_buf_read_ready = false;
 static u64 tcplog_last_read_time = 0;
 static int tcplog_dev_semaphore = 0;
-static int previous_state = 0;
 static struct file_operations tcplog_device_ops = {
   .read = tcplog_device_read,
   .write = tcplog_device_write,
@@ -134,7 +133,7 @@ void tcplog_log_event(char* event_name, struct sock *sk, struct tcplog_extra_dat
     char *local_buffer = kmalloc(LOG_BUF_ENTRY_SIZE, GFP_ATOMIC);
     int buf_i = 0;
 
-    char token_buffer[TEMPLATE_TOKEN_SIZE] = "\0";
+    char token_buffer[TEMPLATE_TOKEN_SIZE+1] = "\0";
     int token_i = 0;
     bool in_token = false;
 
@@ -210,7 +209,6 @@ void tcplog_log_event(char* event_name, struct sock *sk, struct tcplog_extra_dat
                             char to_start[] = ",\"new\": \"";
                             for (int i=0; to_start[i] != '\0'; i++) local_buffer[buf_i++] = to_start[i];
                             char *to_state_name = log_ca_states[extra->new_state];
-                            previous_state = extra->new_state;
                             for (int i=0; to_state_name[i] != '\0'; i++) local_buffer[buf_i++] = to_state_name[i];
                             char to_end[] = "\"";
                             for (int i=0; to_end[i] != '\0'; i++) local_buffer[buf_i++] = to_end[i];
