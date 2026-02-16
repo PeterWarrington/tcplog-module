@@ -390,7 +390,7 @@ class TcplogVisualiser:
                 f.write(csv)
     
     def pdf_export(self, pdf_file):
-        self.make_plot('./scripts/styles/light.mplstyle').savefig(pdf_file.name)
+        self.make_plot('./scripts/styles/light.mplstyle').savefig(pdf_file)
 
     def tk_export(self):
         file = filedialog.asksaveasfile(initialfile="tcplog_output.csv", defaultextension=".csv", filetypes=[("CSV file", "*.csv"), ("HTML file with embedded image", "*.html"), ("PDF (graph only)", "*.pdf")])
@@ -437,6 +437,6 @@ if __name__ == '__main__':
     elif args["csv"]:
         visualiser.csv_export(args["csv"])
     elif args["pdf"]:
-        visualiser.csv_export(args["pdf"])
+        visualiser.pdf_export(args["pdf"])
     else:
         visualiser.tk_display()
