@@ -22,7 +22,7 @@ class TestFieldVerification(unittest.TestCase):
     def setUpClass(self):
         setup_mininet(self, {
             "loss": 1
-        })
+        }, capture_args={"source_ip":"10.0.0.1"})
         with open(f"{out_dir}/test_loss_1percent.json", "w") as f:
             f.write(json.dumps(self.mininet_results, indent=4))
     
@@ -70,7 +70,7 @@ class TestAggressiveReorder(unittest.TestCase):
             time.sleep(duration*(1/3))
             os.system(f"tc qdisc change dev s1-eth1 root netem delay 50ms reorder 0% 0%")
             time.sleep(duration*(1/3))
-        setup_mininet(self, 
+        setup_mininet(self,
                       {"delay": 50, "host_count": 2, "loss": 0},
                       wait_func=wait_func,
                       capture_args={"source_ip":"10.0.0.1"})
