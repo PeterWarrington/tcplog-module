@@ -412,6 +412,7 @@ class TcplogVisualiser:
 
     def tk_display(self):
         self.canvas = self.draw_plot()
+        self.tk_root.focus_force()
         tk.mainloop()
 
 def parse_args():
