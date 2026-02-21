@@ -13,10 +13,13 @@
 
 #ifdef CA_CUBIC
     #define BASE_CA "tcpcubic"
+    #pragma message "Using CUBIC CA..."
 #elifdef CA_RENO
     #define BASE_CA "tcp_reno"
+    #pragma message "Using RENO CA..."
 #else
     #define BASE_CA "tcp_reno"
+    #pragma message "Using RENO CA (fallback)..."
 #endif
 
 
