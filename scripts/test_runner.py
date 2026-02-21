@@ -22,7 +22,7 @@ class TestFieldVerification(unittest.TestCase):
     def setUpClass(self):
         setup_mininet(self, {
             "loss": 1
-        }, capture_args={"source_ip":"10.0.0.1"})
+        }, capture_args={"source_ip":"10.0.0.1", "host_count": 2})
         with open(f"{out_dir}/test_loss_1percent.json", "w") as f:
             f.write(json.dumps(self.mininet_results, indent=4))
     
