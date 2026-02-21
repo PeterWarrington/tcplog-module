@@ -424,14 +424,13 @@ def parse_args():
     arg_parser.add_argument("input", type=str)
     arg_parser.add_argument("-t", "--timestamp-display", help="Display time as timestamp rather than ms since start.", action='store_true')
     arg_parser.add_argument("--rtt", help="Display rtt rather than ssthresh.", action='store_true')
-    arg_parser.add_argument("--html", type=str, required=False, help="Output printable HTML output to filename without GUI display.")
-    arg_parser.add_argument("--csv", type=str, required=False, help="Output data to a CSV file to filename without GUI display.")
-    arg_parser.add_argument("--pdf", type=str, required=False, help="Output graph to a PDF file without GUI display.")
+    arg_parser.add_argument("--html", type=str, required=False, help="Output printable HTML output to filename without GUI display.", nargs='?', const='_', default='')
+    arg_parser.add_argument("--csv", type=str, required=False, help="Output data to a CSV file to filename without GUI display.", nargs='?', const='_', default='')
+    arg_parser.add_argument("--pdf", type=str, required=False, help="Output graph to a PDF file without GUI display.", nargs='?', const='_', default='')
     arg_parser.add_argument("--force-light", help="Force light mode style on MacOS.", action='store_true')
     return dict(arg_parser.parse_args()._get_kwargs())
 
-if __name__ == '__main__':
-    args = parse_args()
+def _main(args):
     visualiser = TcplogVisualiser(**args)
     if args["html"]:
         visualiser.html_export(args["html"])
@@ -441,3 +440,20 @@ if __name__ == '__main__':
         visualiser.pdf_export(args["pdf"])
     else:
         visualiser.tk_display()
+
+if __name__ == '__main__':
+    args = parse_args()
+    if os.path.isdir(args["input"]):
+        # get each json file in directory and visualise
+        for f in os.listdir(args["input"]):
+            if f.endswith(".json"):
+                print(f"Visualising {f}...")
+                if args["html"]:
+                    args["html"] = os.path.join(args["input"], f.replace(".json", ".html"))
+                elif args["csv"]:
+                    args["csv"] = os.path.join(args["input"], f.replace(".json", ".csv"))
+                elif args["pdf"]:
+                    args["pdf"] = os.path.join(args["input"], f.replace(".json", ".pdf"))
+                _main({**args, "input": os.path.join(args["input"], f)})
+    else:
+        _main(args)
