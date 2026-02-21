@@ -11,10 +11,14 @@
 
 #include "tcplog.h"
 
-#define _CA_RENO 1
-#define _CA_CUBIC 2
+#ifdef CA_CUBIC
+    #define BASE_CA "tcpcubic"
+#elifdef CA_RENO
+    #define BASE_CA "tcp_reno"
+#else
+    #define BASE_CA "tcp_reno"
+#endif
 
-#define BASE_CA _CA_RENO
 
 static struct tcp_congestion_ops *base_ca_ops = NULL;
 
@@ -406,34 +410,14 @@ int log_register(void)
         unsigned long addr = 0;
         const char *found_name = NULL;
 
-#if BASE_CA == _CA_RENO
-        addr = kln("tcp_reno");
+        addr = kln(BASE_CA);
         if (addr)
-            found_name = "tcp_reno";
-        else {
-            addr = kln("cubictcp");
-            if (addr)
-                found_name = "cubictcp";
-        }
-#elif BASE_CA == _CA_CUBIC
-        addr = kln("cubictcp");
-        if (addr)
-            found_name = "cubictcp";
+            found_name = BASE_CA;
         else {
             addr = kln("tcp_reno");
             if (addr)
                 found_name = "tcp_reno";
         }
-#else
-        addr = kln("cubictcp");
-        if (addr)
-            found_name = "cubictcp";
-        else {
-            addr = kln("tcp_reno");
-            if (addr)
-                found_name = "tcp_reno";
-        }
-#endif
 
         if (addr) {
             base_ca_ops = (struct tcp_congestion_ops *)addr;
