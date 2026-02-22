@@ -98,8 +98,6 @@ def run(args, wait_func=None, capture_args={}):
     proc_stdout = stdout if args.verbose else subprocess.DEVNULL
     proc_stderr = stdout if args.verbose else subprocess.DEVNULL
 
-    subprocess.run(["make", "install"], stdout=proc_stdout, stderr=proc_stderr, check=True)
-
     subprocess.run(["dd", "if=/dev/urandom", f"of={tempdir}/random", "bs=1M", f"count={args.size}", "iflag=fullblock"], stdout=proc_stdout, stderr=proc_stderr, check=True)
 
     # run capture
@@ -134,7 +132,7 @@ def run(args, wait_func=None, capture_args={}):
 
             server_proc = host.popen(["python3", "-m", "http.server", "4444", "-d", tempdir], stdout=proc_stdout, stderr=proc_stderr)
             curl_proc = host.popen(["curl", "-v", "--http1.0", "--no-keepalive", 
-                                    "--retry", "10", "--retry-all-errors", f"http://{other_host.IP()}:4444/random", 
+                                    "--retry", "10", "--retry-all-errors", f"http://{other_host.IP()}:4444/random",
                                     "-o", "/dev/null"], stdout=proc_stdout, stderr=proc_stderr)
 
             host_procs.append(server_proc)

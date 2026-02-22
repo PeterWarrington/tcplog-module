@@ -48,5 +48,6 @@ mininet:
 	vagrant ssh -c "cd tcplog-module && sudo python3 scripts/mininet_tester.py -o log/test-mininet.json"
 
 test:
+	vagrant halt --force
 	vagrant up
-	vagrant ssh -c "cd tcplog-module && sudo python3 scripts/test_runner.py"
+	vagrant ssh -c "cd tcplog-module && make install CA_ALG=${CA_ALG} && sudo python3 scripts/test_runner.py"
