@@ -12,7 +12,7 @@
 #include "tcplog.h"
 
 #ifdef CA_CUBIC
-    #define BASE_CA "tcpcubic"
+    #define BASE_CA "cubictcp"
     #pragma message "Using CUBIC CA..."
 #elifdef CA_RENO
     #define BASE_CA "tcp_reno"
