@@ -323,16 +323,19 @@ static ssize_t tcplog_device_read(struct file *file, char __user *user_buffer, s
         int this_len = tcplog_entry_len[i];
 
         size_t space_left = (requested_bytes > total_bytes) ? (requested_bytes - total_bytes) : 0;
-        if ((size_t)this_len <= space_left) {
-            if (entries_consumed < LOG_BUF_ENTRY_COUNT_MAX) {
-                indices[entries_consumed] = i;
-                lengths[entries_consumed] = this_len;
-                total_bytes += this_len;
-                entries_consumed++;
-            } else {
-                break;
-            }
+        if ((size_t)this_len > space_left) {
+            break;
         }
+
+        if (entries_consumed < LOG_BUF_ENTRY_COUNT_MAX) {
+            indices[entries_consumed] = i;
+            lengths[entries_consumed] = this_len;
+            total_bytes += this_len;
+            entries_consumed++;
+        } else {
+            break;
+        }
+
         i = (i + 1) % LOG_BUF_ENTRY_COUNT_MAX;
         if (i == tcplog_write_index)
             break;

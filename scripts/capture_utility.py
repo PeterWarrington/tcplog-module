@@ -43,6 +43,7 @@ def _make_args():
     arg_parser.add_argument("-e", "--event-type", type=str, help="Filter events to those with event name specified.")
     arg_parser.add_argument("-o", "--output", type=str, help="File to write output to.")
     arg_parser.add_argument("-q", "--quiet", help="Do not print any output, apart from errors (and log capture if no output file specified).", action="store_true")
+    arg_parser.add_argument("-m", "--max-connections", type=int, help="Maximum number of connections to capture (default is no limit) - selects those connections with most events descending.")
 
     return arg_parser.parse_args()
 
@@ -72,13 +73,27 @@ def filter_check(json_in, args):
     elif (args.destination_ip is not None and
         json_in["data"]["destination_ip"] != args.destination_ip):
         pass
-    elif (args.event_type is not None and 
+    elif (args.event_type is not None and
         json_in["name"] != args.event_type and 
         json_in["name"] != f"tcplog:{args.event_type}"):
         pass
     else:
         return True 
     return False
+
+# apply max connections filter after events collected
+def post_filter(events, args):
+    if args is None or args.max_connections is None:
+        return events
+    connection_event_counts = {}
+    for e in events:
+        connection_tuple = (e["data"]["source_ip"], e["data"]["destination_ip"], e["data"]["source_port"], e["data"]["destination_port"])
+        if connection_tuple not in connection_event_counts:
+            connection_event_counts[connection_tuple] = 0
+        connection_event_counts[connection_tuple] += 1
+
+    top_connections = sorted(connection_event_counts.keys(), key=lambda c: connection_event_counts[c], reverse=True)[:args.max_connections]
+    return [e for e in events if (e["data"]["source_ip"], e["data"]["destination_ip"], e["data"]["source_port"], e["data"]["destination_port"]) in top_connections]
 
 def collect_events(args=None, stop_flag: Event=None, out_value={"result": None}):
     events = []
@@ -97,23 +112,28 @@ def collect_events(args=None, stop_flag: Event=None, out_value={"result": None})
         if args is None or not args.quiet:
             print("Collecting events... Press CTRL+C to stop.")
 
+        partial_data_item = bytearray()
         while True:
             if stop_flag is not None and stop_flag.is_set():
                 break
 
             try:
                 data_in = []
-                last_data_item = bytearray()
                 new_data_in = os.read(device, 2048)
-                while True:
-                    if b'\x04' in new_data_in:
-                        new_data_in_split = [bytearray(ndi) for ndi in new_data_in.split(b'\x04') if len(ndi) > 0]
-                        last_data_item += new_data_in_split[0]
-                        data_in += [last_data_item]
-                        data_in += new_data_in_split[1:-1]
-                        break
-                    else:
-                        last_data_item += bytearray(new_data_in)
+
+                if not new_data_in:
+                    continue
+
+                partial_data_item += bytearray(new_data_in)
+
+                if b'\x04' in partial_data_item:
+                    split_items = partial_data_item.split(b'\x04')
+
+                    for complete_item in split_items[:-1]:
+                        if len(complete_item) > 0:
+                            data_in.append(bytearray(complete_item))
+
+                    partial_data_item = bytearray(split_items[-1])
 
                 for event_data in data_in:
                     str_in = str(event_data, encoding="utf-8")
@@ -133,7 +153,10 @@ def collect_events(args=None, stop_flag: Event=None, out_value={"result": None})
     else:
         with open(args.input_file) as f:
             events = [e for e in json.loads(f.read()) if filter_check(e, args)]
-    
+
+    # handle max connections filter after all other filters
+    events = post_filter(events, args)
+
     out_value["result"] = events
     return events
 
