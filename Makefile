@@ -51,3 +51,7 @@ test:
 	vagrant halt --force
 	vagrant up
 	vagrant ssh -c "cd tcplog-module && make install CA_ALG=${CA_ALG} && sudo python3 scripts/test_runner.py"
+
+test-all:
+	make test CA_ALG=RENO
+	make test CA_ALG=CUBIC
