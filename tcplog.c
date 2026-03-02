@@ -54,11 +54,13 @@ static char event_template[] = "{\n"
     "\t\t\"source_port\": $SPRT,\n"
     "\t\t\"destination_port\": $DPRT,\n"
     "\t\t\"in_slow_start\": $STAT,\n"
+    "\t\t\"is_cwnd_limited\": $CLIM,\n"
     "\t\t\"state_variables\": {\n"
     "\t\t\t\"cwnd\": $CWND,\n"
     "\t\t\t\"iw\": $IWND,\n"
     "\t\t\t\"rwnd\": $RWND,\n"
     "\t\t\t\"ssthresh\": $STHR,\n"
+    "\t\t\t\"in_flight\": $IFLT,\n"
     "\t\t\t\"prior_cwnd\": $PWND,\n"
     "\t\t\t\"prr_delivered\": $PDLV,\n"
     "\t\t\t\"prr_out\": $POUT,\n"
@@ -181,6 +183,11 @@ void tcplog_log_event(char* event_name, struct sock *sk, struct tcplog_extra_dat
                     char var_buf[16] = "\0";
                     sprintf(var_buf, "%d", ssthresh);
                     for (int i=0; var_buf[i] != '\0'; i++) local_buffer[buf_i++] = var_buf[i];
+                } else if (strcmp(token_buffer, "$IFLT") == 0) {
+                    u32 inflight = tcp_packets_in_flight(tcp_sk(sk));
+                    char var_buf[16] = "\0";
+                    sprintf(var_buf, "%d", inflight);
+                    for (int i=0; var_buf[i] != '\0'; i++) local_buffer[buf_i++] = var_buf[i];
                 } else if (strcmp(token_buffer, "$PWND") == 0) {
                     u32 pwnd = tcp_sk(sk)->prior_cwnd;
                     char var_buf[16] = "\0";
@@ -243,6 +250,12 @@ void tcplog_log_event(char* event_name, struct sock *sk, struct tcplog_extra_dat
                     bool in_slow_start = tcp_in_slow_start(tcp_sk(sk));
                     char state[] = "false";
                     if (in_slow_start)
+                        strcpy(state, "true");
+                    for (int i=0; state[i] != '\0'; i++) local_buffer[buf_i++] = state[i];
+                } else if (strcmp(token_buffer, "$CLIM") == 0) {
+                    bool is_cwnd_limited = tcp_is_cwnd_limited(sk);
+                    char state[] = "false";
+                    if (is_cwnd_limited)
                         strcpy(state, "true");
                     for (int i=0; state[i] != '\0'; i++) local_buffer[buf_i++] = state[i];
                 } else if (strcmp(token_buffer, "$SPRT") == 0) {
@@ -560,8 +573,22 @@ void log_cwnd_event(struct sock *sk, enum tcp_ca_event ev) {
 void log_in_ack_event(struct sock *sk, u32 flags) {
     // Trigger packet ack log event if not handled by cong_avoid
     // https://github.com/torvalds/linux/blob/944aacb68baf7624ab8d277d0ebf07f025ca137c/net/ipv4/tcp_input.c#L3654
-    if ((base_ca_ops && base_ca_ops->cong_control) || tcp_in_cwnd_reduction(sk))
+    if (tcp_in_cwnd_reduction(sk))
         tcplog_log_event(tcplog_event_names[PACKETS_ACKED], sk, NULL);
+    if (base_ca_ops && base_ca_ops->in_ack_event)
+        base_ca_ops->in_ack_event(sk, flags);
+    return;
+}
+
+void log_init(struct sock *sk) {
+    if (base_ca_ops && base_ca_ops->init)
+        base_ca_ops->init(sk);
+    return;
+}
+
+void log_pkts_acked(struct sock *sk, const struct ack_sample *sample) {
+    if (base_ca_ops && base_ca_ops->pkts_acked)
+        base_ca_ops->pkts_acked(sk, sample);
     return;
 }
 
@@ -575,6 +602,9 @@ static struct tcp_congestion_ops tcp_log_ops = {
     .cwnd_event = log_cwnd_event,
     .in_ack_event = log_in_ack_event,
     .undo_cwnd    = log_undo_cwnd,
+
+    .init = log_init,
+    .pkts_acked = log_pkts_acked,
 };
 
 module_init(log_register);

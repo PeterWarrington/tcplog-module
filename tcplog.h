@@ -90,4 +90,8 @@ void log_in_ack_event(struct sock *sk, u32 flags);
 
 u32 log_undo_cwnd(struct sock *sk);
 
+void log_init(struct sock *sk);
+
+void log_pkts_acked(struct sock *sk, const struct ack_sample *sample);
+
 static struct tcp_congestion_ops tcp_log_ops;
