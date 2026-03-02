@@ -44,7 +44,7 @@ class TestTimeoutRetransmission(unittest.TestCase):
             time.sleep(duration*(1/3))
             os.system(f"tc qdisc change dev s1-eth1 root netem delay 5ms")
             time.sleep(duration*(1/3))
-        setup_mininet(self, 
+        setup_mininet(self,
                       {"delay": 5, "host_count": 2, "loss": 0}, 
                       wait_func=wait_func,
                       capture_args={"source_ip":"10.0.0.1", "destination_ip": "10.0.0.2", "max_connections": 1})
@@ -91,11 +91,11 @@ class TestSuddenLoss(unittest.TestCase):
     @classmethod
     def setUpClass(self):
         def wait_func(duration):
-            time.sleep(duration*(1/3))
+            time.sleep(duration*(0.33))
             os.system(f"tc qdisc change dev s1-eth1 root netem loss random 0.5%")
-            time.sleep(duration*(1/3))
+            time.sleep(duration*(0.20))
             os.system(f"tc qdisc change dev s1-eth1 root netem loss random 0%")
-            time.sleep(duration*(1/3))
+            time.sleep(duration*(0.47))
         setup_mininet(self, 
                       {"delay": 50, "host_count": 2, "loss": 0}, 
                       wait_func=wait_func,
