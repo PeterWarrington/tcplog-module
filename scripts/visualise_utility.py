@@ -237,6 +237,7 @@ class TcplogVisualiser:
                 marker = '.', label="cwnd", zorder=10)
 
             ax1.set_xlabel(self.time_label)
+            ax1.set_ylabel("Window size (packets)")
 
             ax1.set_ylim(0, ax1.get_ylim()[1])
 
