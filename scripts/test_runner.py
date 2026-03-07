@@ -7,6 +7,7 @@ import time
 from mininet import topo
 import json
 from datetime import datetime
+from to_qvis import write_qvis
 
 out_dir = "./automated_test_results"
 
@@ -25,6 +26,7 @@ class TestFieldVerification(unittest.TestCase):
         }, capture_args={"source_ip":"10.0.0.1", "destination_ip": "10.0.0.2", "max_connections": 1})
         with open(f"{out_dir}/test_loss_0_1percent.json", "w") as f:
             f.write(json.dumps(self.mininet_results, indent=4))
+        write_qvis(self.mininet_results, f"{out_dir}/QVIS_test_loss_0_1percent.json")
 
     def test_is_packets_acked(self):
         self.assertGreater(self.event_counter["tcplog:packets_acked"], 0, "Verify packets have been acked.")
@@ -50,6 +52,7 @@ class TestTimeoutRetransmission(unittest.TestCase):
                       capture_args={"source_ip":"10.0.0.1", "destination_ip": "10.0.0.2", "max_connections": 1})
         with open(f"{out_dir}/test_retransmission.json", "w") as f:
             f.write(json.dumps(self.mininet_results, indent=4))
+        write_qvis(self.mininet_results, f"{out_dir}/QVIS_test_retransmission.json")
     
     def test_is_retransmission(self):
         retransmission_events = [e for e in self.mininet_events if (
@@ -76,6 +79,7 @@ class TestAggressiveReorder(unittest.TestCase):
                       capture_args={"source_ip":"10.0.0.1", "destination_ip": "10.0.0.2", "max_connections": 1})
         with open(f"{out_dir}/test_reorder.json", "w") as f:
             f.write(json.dumps(self.mininet_results, indent=4))
+        write_qvis(self.mininet_results, f"{out_dir}/QVIS_test_reorder.json")
     
     def test_is_dupack(self):
         dupack_events = [e for e in self.mininet_events if (
@@ -102,6 +106,7 @@ class TestSuddenLoss(unittest.TestCase):
                       capture_args={"source_ip":"10.0.0.1", "destination_ip": "10.0.0.2", "max_connections": 1})
         with open(f"{out_dir}/test_sudden_loss.json", "w") as f:
             f.write(json.dumps(self.mininet_results, indent=4))
+        write_qvis(self.mininet_results, f"{out_dir}/QVIS_test_sudden_loss.json")
     
     def test_is_dupack(self):
         dupack_events = [e for e in self.mininet_events if (
