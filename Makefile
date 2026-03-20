@@ -4,6 +4,8 @@ PWD := $(CURDIR)
 
 CA_ALG := RENO
 
+QVIS := ''
+
 all:
 	$(MAKE) -C /lib/modules/$(shell uname -r)/build M=$(PWD) modules EXTRA_CFLAGS="-DCA_${CA_ALG}"
 
@@ -50,8 +52,17 @@ mininet:
 test:
 	vagrant halt --force
 	vagrant up
-	vagrant ssh -c "cd tcplog-module && make install CA_ALG=${CA_ALG} && sudo python3 scripts/test_runner.py"
+	if [[ $(QVIS) ]]; then \
+		vagrant ssh -c "cd tcplog-module && make install CA_ALG=${CA_ALG} && sudo python3 scripts/test_runner.py --qvis"; \
+	else \
+		vagrant ssh -c "cd tcplog-module && make install CA_ALG=${CA_ALG} && sudo python3 scripts/test_runner.py"; \
+	fi
 
 test-all:
-	make test CA_ALG=RENO
-	make test CA_ALG=CUBIC
+	if [[ $(QVIS) ]]; then \
+		make test CA_ALG=RENO QVIS=1; \
+		make test CA_ALG=CUBIC QVIS=1; \
+	else \
+		make test CA_ALG=RENO; \
+		make test CA_ALG=CUBIC; \
+	fi

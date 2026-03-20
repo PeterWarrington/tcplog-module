@@ -60,6 +60,7 @@ static char event_template[] = "{\n"
     "\t\t\t\"iw\": $IWND,\n"
     "\t\t\t\"rwnd\": $RWND,\n"
     "\t\t\t\"ssthresh\": $STHR,\n"
+    "\t\t\t\"delivered\": $DELV,\n"
     "\t\t\t\"in_flight\": $IFLT,\n"
     "\t\t\t\"prior_cwnd\": $PWND,\n"
     "\t\t\t\"prr_delivered\": $PDLV,\n"
@@ -182,6 +183,11 @@ void tcplog_log_event(char* event_name, struct sock *sk, struct tcplog_extra_dat
                     u32 ssthresh = log_get_ssthresh(sk);
                     char var_buf[16] = "\0";
                     sprintf(var_buf, "%d", ssthresh);
+                    for (int i=0; var_buf[i] != '\0'; i++) local_buffer[buf_i++] = var_buf[i];
+                } else if (strcmp(token_buffer, "$DELV") == 0) {
+                    u32 delivered = tcp_sk(sk)->delivered;
+                    char var_buf[16] = "\0";
+                    sprintf(var_buf, "%d", delivered);
                     for (int i=0; var_buf[i] != '\0'; i++) local_buffer[buf_i++] = var_buf[i];
                 } else if (strcmp(token_buffer, "$IFLT") == 0) {
                     u32 inflight = tcp_packets_in_flight(tcp_sk(sk));

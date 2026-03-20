@@ -97,9 +97,6 @@ def run(args, wait_func=None, capture_args={}):
 
     proc_stdout = stdout if args.verbose else subprocess.DEVNULL
     proc_stderr = stdout if args.verbose else subprocess.DEVNULL
-
-    subprocess.run(["dd", "if=/dev/urandom", f"of={tempdir}/random", "bs=1M", f"count={args.size}", "iflag=fullblock"], stdout=proc_stdout, stderr=proc_stderr, check=True)
-
     # run capture
     capture_stop_flag = threading.Event()
     capture_out = {"result": None}
@@ -130,10 +127,8 @@ def run(args, wait_func=None, capture_args={}):
             host = net.get(switch_host_ids.pop(0))
             other_host = net.get(other_switch_host_ids.pop(0))
 
-            server_proc = host.popen(["python3", "-m", "http.server", "4444", "-d", tempdir], stdout=proc_stdout, stderr=proc_stderr)
-            curl_proc = host.popen(["curl", "-v", "--http1.0", "--no-keepalive", 
-                                    "--retry", "10", "--retry-all-errors", f"http://{other_host.IP()}:4444/random",
-                                    "-o", "/dev/null"], stdout=proc_stdout, stderr=proc_stderr)
+            server_proc = host.popen(["iperf", "-s", "-p", "4444", "-w", "1024M"], stdout=proc_stdout, stderr=proc_stderr)
+            curl_proc = host.popen(["iperf", "-c", other_host.IP(), "-p", "4444", "-w", "1024M"], stdout=proc_stdout, stderr=proc_stderr)
 
             host_procs.append(server_proc)
             host_procs.append(curl_proc)
