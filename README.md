@@ -56,3 +56,5 @@ To install TCPLog:
 Run `python3 scripts/visualise_utility.py <path to TCPLog file>`.
 
 For command-line options run `python3 scripts/visualise_utility.py --help`.
+
+For a full guide to the visualisation utility see [/manual.md](/manual.md).
