@@ -4,6 +4,12 @@ Command line guidance for all utilities is accessible using `python3 scripts/<ut
 
 # Visualisation Utility user manual
 
+## Invocation
+
+Run `python3 scripts/visualise_utility.py <path to TCPLog file>` to start the utility.
+
+For a list of command-line options run `python3 scripts/visualise_utility.py --help`.
+
 ## User interface guide
 
 ![](docs/visualiser-diagram.png)
@@ -49,12 +55,6 @@ Magnifier - Draw a selection on the graph on which to zoom.
 Options - Set graph display settings.
 
 Save - Export the current graph view to file.
-
-## Invocation
-
-Run `python3 scripts/visualise_utility.py <path to TCPLog file>` to start the utility.
-
-For a list of command-line options run `python3 scripts/visualise_utility.py --help`.
 
 # Testing guide
 
