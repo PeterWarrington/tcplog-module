@@ -55,3 +55,9 @@ Save - Export the current graph view to file.
 Run `python3 scripts/visualise_utility.py <path to TCPLog file>` to start the utility.
 
 For a list of command-line options run `python3 scripts/visualise_utility.py --help`.
+
+# Testing guide
+
+Run `make test-all` from the host to collect results for both CUBIC and RENO.
+
+Run `make test CA_ALG=RENO` or `make test CA_ALG=CUBIC` from the host to run these separately.
