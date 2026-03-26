@@ -15,6 +15,8 @@ TCPLog is a project for the logging of Congestion Control state for live TCP con
 * `Vagrantfile` - Specifies the Vagrant environment for running and testing TCPLog.
 * `Makefile` - Provides scriptlets for building, running, and testing TCPLog.
 
+* `data/` contains two sets of automated test results for CUBIC and Reno.
+
 ## Build instructions
 
 ### Requirements
