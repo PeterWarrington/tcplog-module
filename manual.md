@@ -6,7 +6,7 @@ Command line guidance for all utilities is accessible using `python3 scripts/<ut
 
 User interface guide:
 
-![](docs/visualiser-diagram.svg)
+![](docs/visualiser-diagram.png)
 
 * See [/docs/visualiser-diagram.pdf](/docs/visualiser-diagram.pdf) to view the guide as a PDF.
 
