@@ -4,7 +4,7 @@
 
 TCPLog is a independent research project for fulfilment of the University of Glasgow Level 4 Honours Computing Science BSc course.
 
-TCPLog is a project for the logging of Congestion Control state for live TCP connections in the Linux kernel. The source code:
+TCPLog is a project for the logging of Congestion Control state for live TCP connections in the Linux kernel. The source code consists of:
 
 * `tcplog.c`, `tcplog.h` - A kernel module which writes TCPLog formatted log information to a character device file.
 * `scripts/capture_utility.py` - A utility for capturing from the `/dev/tcplog` character device.
