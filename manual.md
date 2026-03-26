@@ -8,6 +8,10 @@ Command line guidance for all utilities is accessible using `python3 scripts/<ut
 
 Run `python3 scripts/visualise_utility.py <path to TCPLog file>` to start the utility.
 
+Run `python3 scripts/visualise_utility.py <path to TCPLog file> --pdf <path to PDF output>` to export a TCPLog file to a pdf graph.
+
+Run `python3 scripts/visualise_utility.py <path to directory of only TCPLog json files> --pdf` to export all files in directory to pdf graphs.
+
 For a list of command-line options run `python3 scripts/visualise_utility.py --help`.
 
 ## User interface guide
