@@ -4,6 +4,8 @@ Command line guidance for all utilities is accessible using `python3 scripts/<ut
 
 # Visualisation Utility user manual
 
+`/data/` contains TCPLog files to try with the Visualisation Utility.
+
 ## Invocation
 
 Run `python3 scripts/visualise_utility.py <path to TCPLog file>` to start the utility.
