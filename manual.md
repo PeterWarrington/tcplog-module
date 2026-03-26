@@ -2,15 +2,15 @@
 
 Command line guidance for all utilities is accessible using `python3 scripts/<utility>.py --help`. More guidance is available in README.md.
 
-## Visualisation Utility user manual
+# Visualisation Utility user manual
 
-### User interface guide
+## User interface guide
 
 ![](docs/visualiser-diagram.png)
 
 * See [/docs/visualiser-diagram.pdf](/docs/visualiser-diagram.pdf) to view the guide as a PDF.
 
-#### Diagram text:
+### Diagram text:
 
 **Graph view:**
 Shows the Congestion Window and Slow Start Threshold for the duration of the connection. Clicking on the graph selects events while also selecting it in the event list.
@@ -50,7 +50,7 @@ Options - Set graph display settings.
 
 Save - Export the current graph view to file.
 
-### Invocation
+## Invocation
 
 Run `python3 scripts/visualise_utility.py <path to TCPLog file>` to start the utility.
 
