@@ -4,6 +4,8 @@
 
 TCPLog is a independent research project for fulfilment of the University of Glasgow Level 4 Honours Computing Science BSc course.
 
+It is a project investigating how logging of TCP Congestion Control functionality may be implemented in the Linux kernel akin to how QUIC implements qlog in user space. Involved creating a kernel module that exposes the internal TCP State machine, and producing graphical visualisations thereof.
+
 TCPLog is a project for the logging of Congestion Control state for live TCP connections in the Linux kernel. The source code consists of:
 
 * `tcplog.c`, `tcplog.h` - A kernel module which writes TCPLog formatted log information to a character device file.
